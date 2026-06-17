@@ -144,14 +144,28 @@ class SupabaseRepository implements Repository {
     // 최초 실행 시(조직 데이터가 비어 있으면) 시드 주입
     if (dataset.organizations.length === 0) {
       const seed = buildSeedBundle()
-      await Promise.all([
-        c.from('organizations').insert(seed.organizations),
+      // 외래키 의존성 순서대로 직렬 삽입한다.
+      //  organizations → (employees, tongs) → (tong_inputs, tong_summaries, action_items)
+      const fail = (label: string, error: unknown) => {
+        if (error) throw new Error(`시드 주입 실패 (${label}): ${(error as { message?: string }).message ?? error}`)
+      }
+
+      fail('organizations', (await c.from('organizations').insert(seed.organizations)).error)
+      const [empRes, tongRes] = await Promise.all([
         c.from('employees').insert(seed.employees),
         c.from('tongs').insert(seed.tongs),
+      ])
+      fail('employees', empRes.error)
+      fail('tongs', tongRes.error)
+      const [inRes, sumRes, aiRes] = await Promise.all([
         c.from('tong_inputs').insert(seed.inputs),
         c.from('tong_summaries').insert(seed.summaries),
         c.from('action_items').insert(seed.actionItems),
       ])
+      fail('tong_inputs', inRes.error)
+      fail('tong_summaries', sumRes.error)
+      fail('action_items', aiRes.error)
+
       return seed
     }
 

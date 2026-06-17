@@ -96,5 +96,6 @@ create index if not exists idx_tongs_org on tongs (org_id);
 create index if not exists idx_inputs_tong on tong_inputs (tong_id);
 create index if not exists idx_items_tong on action_items (tong_id);
 
--- 참고: MVP 단계에서는 anon 키로 접근합니다. 운영 전환 시 RLS 정책을 반드시 설정하세요.
--- alter table tongs enable row level security;  -- 등
+-- RLS: 이 스키마 실행 후 반드시 supabase/policies.sql 도 실행하세요.
+-- (RLS 가 켜져 있으면 정책 없이는 anon 키의 읽기/쓰기가 모두 차단됩니다.)
+-- 운영 전환 시 policies.sql 의 전체 허용 정책을 인증 기반 정책으로 교체하세요.
