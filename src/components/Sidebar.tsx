@@ -38,14 +38,8 @@ export function Sidebar() {
   return (
     <aside className="flex h-screen w-64 shrink-0 flex-col border-r border-gray-100 bg-white">
       {/* 로고 */}
-      <div className="flex items-center gap-3 px-6 py-5">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-accent-600 text-lg font-bold text-white">
-          通
-        </div>
-        <div>
-          <p className="text-lg font-extrabold leading-tight text-gray-900">통 HADA</p>
-          <p className="text-xs text-gray-400">비상교육 Work AI</p>
-        </div>
+      <div className="flex items-center px-6 py-5">
+        <img src="/logo.png" alt="통 HADA" className="h-12 w-auto" />
       </div>
 
       {/* 메뉴 */}
