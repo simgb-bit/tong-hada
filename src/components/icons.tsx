@@ -36,6 +36,7 @@ export const SparkIcon = (p: IconProps) => base(<><path d="M12 3l1.9 5.1L19 10l-
 export const FileIcon = (p: IconProps) => base(<><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><path d="M14 2v6h6" /></>, p)
 export const TeamsIcon = (p: IconProps) => base(<><rect x="3" y="6" width="13" height="12" rx="2" /><path d="M16 9l5-3v12l-5-3" /></>, p)
 export const MicIcon = (p: IconProps) => base(<><rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 10a7 7 0 0014 0M12 19v3" /></>, p)
+export const StopIcon = (p: IconProps) => base(<><rect x="6" y="6" width="12" height="12" rx="2" /></>, p)
 export const TextIcon = (p: IconProps) => base(<><path d="M4 7V4h16v3M9 20h6M12 4v16" /></>, p)
 export const MemoIcon = (p: IconProps) => base(<><path d="M11 4H4v16h16v-7" /><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4z" /></>, p)
 export const TrashIcon = (p: IconProps) => base(<><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" /></>, p)
