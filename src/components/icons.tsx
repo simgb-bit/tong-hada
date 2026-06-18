@@ -44,3 +44,5 @@ export const ChevronDown = (p: IconProps) => base(<><path d="M6 9l6 6 6-6" /></>
 export const AlertIcon = (p: IconProps) => base(<><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /><path d="M12 9v4M12 17h.01" /></>, p)
 export const SearchIcon = (p: IconProps) => base(<><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></>, p)
 export const RefreshIcon = (p: IconProps) => base(<><path d="M23 4v6h-6M1 20v-6h6" /><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" /></>, p)
+export const MenuIcon = (p: IconProps) => base(<><path d="M3 12h18M3 6h18M3 18h18" /></>, p)
+export const XIcon = (p: IconProps) => base(<><path d="M18 6L6 18M6 6l12 12" /></>, p)
