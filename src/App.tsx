@@ -9,9 +9,7 @@ import { TongList } from '@/pages/TongList'
 import { TongDetail } from '@/pages/TongDetail'
 import { ActionItems } from '@/pages/ActionItems'
 import { OrgData } from '@/pages/OrgData'
-import { EmployeeSync } from '@/pages/EmployeeSync'
 import { Analytics } from '@/pages/Analytics'
-import { Settings } from '@/pages/Settings'
 
 export default function App() {
   const { loading, error } = useData()
@@ -34,9 +32,7 @@ export default function App() {
           <Route path="/tongs/:id" element={<TongDetail />} />
           <Route path="/action-items" element={<ActionItems />} />
           <Route path="/org-data" element={<OrgData />} />
-          <Route path="/employees" element={<EmployeeSync />} />
           <Route path="/analytics" element={<Analytics />} />
-          <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Home />} />
         </Routes>
       )}
