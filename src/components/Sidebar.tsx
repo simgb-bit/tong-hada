@@ -9,9 +9,7 @@ import {
   ArchiveIcon,
   TaskIcon,
   OrgIcon,
-  UsersIcon,
   ChartIcon,
-  SettingsIcon,
   XIcon,
 } from '@/components/icons'
 import type { ReactNode } from 'react'
@@ -30,9 +28,7 @@ const items: NavItem[] = [
   { to: '/tongs', label: '통 기록함', icon: <ArchiveIcon /> },
   { to: '/action-items', label: '후속 과제', icon: <TaskIcon /> },
   { to: '/org-data', label: '조직 데이터', icon: <OrgIcon /> },
-  { to: '/employees', label: '사원/조직 연동', icon: <UsersIcon /> },
   { to: '/analytics', label: '분석', icon: <ChartIcon /> },
-  { to: '/settings', label: '설정', icon: <SettingsIcon /> },
 ]
 
 interface SidebarProps {
