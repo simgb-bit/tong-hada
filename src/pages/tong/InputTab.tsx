@@ -1,9 +1,9 @@
 // 통 상세 - 입력 탭 (Teams 녹취 / 텍스트 / 메모 / 음성 파일)
 
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useData } from '@/store/DataContext'
 import { Card, Badge } from '@/components/ui'
-import { TeamsIcon, TextIcon, MemoIcon, MicIcon, FileIcon } from '@/components/icons'
+import { TeamsIcon, TextIcon, MemoIcon, MicIcon, FileIcon, StopIcon } from '@/components/icons'
 import { cn, formatDateTime, formatFileSize } from '@/lib/utils'
 import { uid } from '@/lib/db'
 import { fetchTeamsTranscript } from '@/lib/teams'
@@ -14,7 +14,7 @@ const METHODS: { key: TongInputType; label: string; icon: React.ReactNode }[] = 
   { key: 'teams', label: 'Teams 녹취', icon: <TeamsIcon className="h-4 w-4" /> },
   { key: 'text', label: '텍스트 입력', icon: <TextIcon className="h-4 w-4" /> },
   { key: 'memo', label: '메모 입력', icon: <MemoIcon className="h-4 w-4" /> },
-  { key: 'audio', label: '음성 파일', icon: <MicIcon className="h-4 w-4" /> },
+  { key: 'audio', label: '음성 녹음·파일', icon: <MicIcon className="h-4 w-4" /> },
 ]
 
 const TYPE_LABEL: Record<TongInputType, string> = {
@@ -182,8 +182,186 @@ function TextInput({ onSave, placeholder, label }: { onSave: (c: string) => Prom
   )
 }
 
-// ── 음성 파일 업로드 + STT ───────────────────────────────────────────────────
+// ── 음성 (마이크 녹음 / 파일 업로드) ─────────────────────────────────────────
 function AudioInput({ tong, onTranscribed, onAttach }: { tong: Tong; onTranscribed: (c: string) => Promise<void>; onAttach: (a: Attachment) => Promise<void> }) {
+  const [sub, setSub] = useState<'record' | 'upload'>('record')
+
+  // 녹음/업로드 공통 처리: 첨부 메타 저장 → STT 변환(Mock) → 입력 저장
+  async function processFile(file: File): Promise<string> {
+    const att: Attachment = {
+      id: uid('att'),
+      tong_id: tong.id,
+      file_name: file.name,
+      file_size: file.size,
+      mime_type: file.type || 'audio/webm',
+      storage_path: '', // TODO: Supabase Storage 업로드 경로
+      uploaded_at: new Date().toISOString(),
+    }
+    await onAttach(att)
+    const text = await transcribeAudioFile(file)
+    await onTranscribed(text)
+    return text
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2">
+        <SubTab active={sub === 'record'} onClick={() => setSub('record')} icon={<MicIcon className="h-4 w-4" />} label="마이크 녹음" />
+        <SubTab active={sub === 'upload'} onClick={() => setSub('upload')} icon={<FileIcon className="h-4 w-4" />} label="파일 업로드" />
+      </div>
+      {sub === 'record' ? <MicRecorder onProcess={processFile} /> : <AudioUpload onProcess={processFile} />}
+    </div>
+  )
+}
+
+function SubTab({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors',
+        active ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50',
+      )}
+    >
+      {icon}
+      {label}
+    </button>
+  )
+}
+
+// ── 마이크 녹음 (MediaRecorder) ──────────────────────────────────────────────
+function MicRecorder({ onProcess }: { onProcess: (file: File) => Promise<string> }) {
+  const [recording, setRecording] = useState(false)
+  const [seconds, setSeconds] = useState(0)
+  const [recordedFile, setRecordedFile] = useState<File | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [transcribing, setTranscribing] = useState(false)
+  const [result, setResult] = useState<string | null>(null)
+
+  const recorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
+  const streamRef = useRef<MediaStream | null>(null)
+  const timerRef = useRef<number | null>(null)
+
+  function clearTimer() {
+    if (timerRef.current !== null) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+  }
+  function stopStream() {
+    streamRef.current?.getTracks().forEach((t) => t.stop())
+    streamRef.current = null
+  }
+
+  // 언마운트(탭 이동 등) 시 녹음/스트림 정리
+  useEffect(() => {
+    return () => {
+      clearTimer()
+      if (recorderRef.current && recorderRef.current.state !== 'inactive') recorderRef.current.stop()
+      stopStream()
+    }
+  }, [])
+
+  async function start() {
+    setError(null)
+    setResult(null)
+    setRecordedFile(null)
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      setError('이 브라우저는 마이크 녹음을 지원하지 않습니다. (HTTPS 환경의 Chrome/Edge 권장)')
+      return
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
+      chunksRef.current = []
+      const recorder = new MediaRecorder(stream)
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
+      recorder.onstop = () => {
+        const type = recorder.mimeType || 'audio/webm'
+        const blob = new Blob(chunksRef.current, { type })
+        const ext = type.includes('ogg') ? 'ogg' : 'webm'
+        const file = new File([blob], `녹음_${fileStamp()}.${ext}`, { type })
+        setRecordedFile(file)
+        stopStream()
+      }
+      recorder.start()
+      recorderRef.current = recorder
+      setRecording(true)
+      setSeconds(0)
+      timerRef.current = window.setInterval(() => setSeconds((s) => s + 1), 1000)
+    } catch (e) {
+      const err = e as DOMException
+      if (err.name === 'NotAllowedError') setError('마이크 권한이 거부되었습니다. 브라우저 주소창의 권한 설정에서 마이크를 허용해 주세요.')
+      else if (err.name === 'NotFoundError') setError('마이크를 찾을 수 없습니다. 장치 연결을 확인해 주세요.')
+      else setError(`녹음을 시작할 수 없습니다: ${err.message}`)
+    }
+  }
+
+  function stop() {
+    clearTimer()
+    setRecording(false)
+    recorderRef.current?.stop()
+  }
+
+  async function transcribe() {
+    if (!recordedFile) return
+    setTranscribing(true)
+    try {
+      const text = await onProcess(recordedFile)
+      setResult(text)
+      setRecordedFile(null)
+    } finally {
+      setTranscribing(false)
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <label className="label">마이크 녹음</label>
+      <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 py-8 text-center">
+        <div className={cn('mb-3 flex h-16 w-16 items-center justify-center rounded-full', recording ? 'animate-pulse bg-red-50 text-red-500' : 'bg-gray-50 text-gray-400')}>
+          <MicIcon className="h-7 w-7" />
+        </div>
+        {recording ? (
+          <p className="text-sm font-medium text-red-500">녹음 중… {formatElapsed(seconds)}</p>
+        ) : recordedFile ? (
+          <p className="text-sm text-gray-500">{recordedFile.name} · {formatFileSize(recordedFile.size)}</p>
+        ) : (
+          <p className="text-sm text-gray-500">버튼을 눌러 회의 녹음을 시작하세요.</p>
+        )}
+        <div className="mt-4">
+          {recording ? (
+            <button className="btn-primary bg-red-500 hover:bg-red-600" onClick={stop}>
+              <StopIcon className="h-4 w-4" />녹음 종료
+            </button>
+          ) : (
+            <button className="btn-primary" onClick={start} disabled={transcribing}>
+              <MicIcon className="h-4 w-4" />{recordedFile ? '다시 녹음' : '녹음 시작'}
+            </button>
+          )}
+        </div>
+      </div>
+      {error && <p className="text-sm text-red-500">{error}</p>}
+      {recordedFile && !recording && (
+        <div className="flex justify-end">
+          <button className="btn-primary" onClick={transcribe} disabled={transcribing}>
+            {transcribing ? 'STT 변환 중…' : 'STT 변환'}
+          </button>
+        </div>
+      )}
+      {result && (
+        <div className="rounded-xl bg-gray-50 p-3">
+          <p className="mb-1 text-xs font-medium text-gray-500">변환 결과 (저장됨)</p>
+          <p className="whitespace-pre-wrap text-xs text-gray-600">{result}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── 음성 파일 업로드 + STT ───────────────────────────────────────────────────
+function AudioUpload({ onProcess }: { onProcess: (file: File) => Promise<string> }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -205,21 +383,8 @@ function AudioInput({ tong, onTranscribed, onAttach }: { tong: Tong; onTranscrib
     if (!file) return
     setTranscribing(true)
     try {
-      // 파일 메타데이터 저장
-      const att: Attachment = {
-        id: uid('att'),
-        tong_id: tong.id,
-        file_name: file.name,
-        file_size: file.size,
-        mime_type: file.type || 'audio/mpeg',
-        storage_path: '', // TODO: Supabase Storage 업로드 경로
-        uploaded_at: new Date().toISOString(),
-      }
-      await onAttach(att)
-
-      const text = await transcribeAudioFile(file)
+      const text = await onProcess(file)
       setResult(text)
-      await onTranscribed(text)
       setFile(null)
       if (inputRef.current) inputRef.current.value = ''
     } finally {
@@ -255,4 +420,18 @@ function AudioInput({ tong, onTranscribed, onAttach }: { tong: Tong; onTranscrib
       )}
     </div>
   )
+}
+
+// 녹음 경과 시간 mm:ss
+function formatElapsed(totalSeconds: number): string {
+  const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0')
+  const s = (totalSeconds % 60).toString().padStart(2, '0')
+  return `${m}:${s}`
+}
+
+// 녹음 파일명용 타임스탬프 (YYYYMMDD_HHmmss)
+function fileStamp(): string {
+  const d = new Date()
+  const p = (n: number) => n.toString().padStart(2, '0')
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`
 }
