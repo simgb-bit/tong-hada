@@ -3,18 +3,17 @@
 import { useMemo } from 'react'
 import { useData } from '@/store/DataContext'
 import { PageHeader, Card, StatCard, BarChart, Badge } from '@/components/ui'
-import { ArchiveIcon, TaskIcon, SparkIcon, ClockIcon } from '@/components/icons'
-import { tongsByType, tongsByOrg, recurringKeywords, recentKeyIssues, openActionItems } from '@/lib/selectors'
+import { ArchiveIcon, SparkIcon, ClockIcon } from '@/components/icons'
+import { tongsByType, tongsByOrg, recurringKeywords, recentKeyIssues } from '@/lib/selectors'
 
 export function Analytics() {
   const data = useData()
-  const { tongs, actionItems, summaries } = data
+  const { tongs, summaries } = data
 
   const byType = useMemo(() => tongsByType(data), [data])
   const byOrg = useMemo(() => tongsByOrg(data), [data])
   const keywords = useMemo(() => recurringKeywords(data), [data])
   const recentIssues = useMemo(() => recentKeyIssues(data, 30), [data])
-  const open = openActionItems(actionItems)
 
   const totalConclusions = summaries.reduce((sum, s) => sum + s.conclusions.length, 0)
   const totalPending = summaries.reduce((sum, s) => sum + s.pending_items.length, 0)
@@ -24,9 +23,8 @@ export function Analytics() {
       <PageHeader title="분석" subtitle="전사 회의 데이터를 조직 운영 관점에서 분석합니다." />
 
       {/* 핵심 지표 */}
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="전체 통 개수" value={tongs.length} icon={<ArchiveIcon />} tone="brand" />
-        <StatCard label="미완료 과제 수" value={open.length} icon={<TaskIcon />} tone="amber" />
         <StatCard label="주요 결론 수" value={totalConclusions} icon={<SparkIcon />} tone="green" />
         <StatCard label="보류 사항 수" value={totalPending} icon={<ClockIcon />} tone="red" />
       </div>

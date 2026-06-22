@@ -4,7 +4,6 @@
 // In-Memory 저장소와 Supabase 시드(seed) 양쪽에서 동일하게 사용합니다.
 
 import type {
-  ActionItem,
   Attachment,
   Employee,
   Organization,
@@ -20,12 +19,6 @@ function isoOffsetDays(days: number, hour = 10): string {
   d.setDate(d.getDate() + days)
   d.setHours(hour, 0, 0, 0)
   return d.toISOString()
-}
-
-function dateOffsetDays(days: number): string {
-  const d = new Date(now)
-  d.setDate(d.getDate() + days)
-  return d.toISOString().slice(0, 10)
 }
 
 // ── 조직 (Company → CoreGroup → Core → Cell) ───────────────────────────────
@@ -171,66 +164,6 @@ export const seedSummaries: TongSummary[] = [
   },
 ]
 
-// ── 후속 과제 ──────────────────────────────────────────────────────────────
-export const seedActionItems: ActionItem[] = [
-  {
-    id: 'ai-1',
-    tong_id: 'tong-3',
-    tong_title: '신규 프로젝트 킥오프 통',
-    title: '신제품 출시 보도자료 초안 작성',
-    assignee: null, // AI 확정 불가 → 확인 필요
-    assignee_org_id: 'core-ax',
-    assignee_org_name: 'AX추진 Core',
-    due_date: dateOffsetDays(7),
-    status: '확인 필요',
-    evidence: '킥오프 통에서 외부 커뮤니케이션 자료 준비 필요성이 언급됨.',
-    created_at: isoOffsetDays(-5),
-    updated_at: isoOffsetDays(-5),
-  },
-  {
-    id: 'ai-2',
-    tong_id: 'tong-3',
-    tong_title: '신규 프로젝트 킥오프 통',
-    title: '서버 증설 비용 및 일정 확인',
-    assignee: '박지호',
-    assignee_org_id: 'cell-platform',
-    assignee_org_name: '플랫폼기획 Cell',
-    due_date: dateOffsetDays(3),
-    status: '진행 중',
-    evidence: '플랫폼 확장에 따른 인프라 비용 검토 필요.',
-    created_at: isoOffsetDays(-5),
-    updated_at: isoOffsetDays(-3),
-  },
-  {
-    id: 'ai-3',
-    tong_id: 'tong-2',
-    tong_title: '마케팅 캠페인 주간 점검 통',
-    title: '고객 피드백 정리 및 공유',
-    assignee: '정민준',
-    assignee_org_id: 'cell-platform',
-    assignee_org_name: '플랫폼기획 Cell',
-    due_date: dateOffsetDays(-1),
-    status: '확인 필요',
-    evidence: '전환율 정체 원인 분석을 위해 VOC 정리 필요.',
-    created_at: isoOffsetDays(-2),
-    updated_at: isoOffsetDays(-2),
-  },
-  {
-    id: 'ai-4',
-    tong_id: 'tong-2',
-    tong_title: '마케팅 캠페인 주간 점검 통',
-    title: '랜딩 페이지 개선안 초안 작성',
-    assignee: null,
-    assignee_org_id: 'cell-platform',
-    assignee_org_name: '플랫폼기획 Cell',
-    due_date: dateOffsetDays(5),
-    status: '보류',
-    evidence: '디자인 리소스 확보 후 진행 예정.',
-    created_at: isoOffsetDays(-2),
-    updated_at: isoOffsetDays(-2),
-  },
-]
-
 // ── 첨부 파일 ──────────────────────────────────────────────────────────────
 export const seedAttachments: Attachment[] = []
 
@@ -240,7 +173,6 @@ export interface SeedBundle {
   tongs: Tong[]
   inputs: TongInput[]
   summaries: TongSummary[]
-  actionItems: ActionItem[]
   attachments: Attachment[]
 }
 
@@ -252,7 +184,6 @@ export function buildSeedBundle(): SeedBundle {
     tongs: seedTongs,
     inputs: seedInputs,
     summaries: seedSummaries,
-    actionItems: seedActionItems,
     attachments: seedAttachments,
   })
 }

@@ -5,8 +5,11 @@ import { Link } from 'react-router-dom'
 import { useData } from '@/store/DataContext'
 import { PageHeader, Card, Badge, EmptyState } from '@/components/ui'
 import { SearchIcon, ArchiveIcon, PlusIcon } from '@/components/icons'
-import { formatDateTime, tongStatusColor, tongTypeColor } from '@/lib/utils'
+import { cn, formatDateTime, tongStatusColor, tongTypeColor } from '@/lib/utils'
+import { TongCalendar } from '@/components/TongCalendar'
 import type { TongStatus, TongType } from '@/types'
+
+type ViewMode = 'list' | 'calendar'
 
 const TYPE_FILTERS: (TongType | '전체')[] = ['전체', '책임자 통', '주간 통', '상시 통', '기타 통']
 const STATUS_FILTERS: (TongStatus | '전체')[] = ['전체', '예정', '진행 완료', '보류']
@@ -16,6 +19,7 @@ export function TongList() {
   const [q, setQ] = useState('')
   const [type, setType] = useState<TongType | '전체'>('전체')
   const [status, setStatus] = useState<TongStatus | '전체'>('전체')
+  const [view, setView] = useState<ViewMode>('list')
 
   const summaryByTong = useMemo(() => new Map(summaries.map((s) => [s.tong_id, s])), [summaries])
 
@@ -33,9 +37,25 @@ export function TongList() {
         title="통 기록함"
         subtitle={`총 ${tongs.length}개의 통이 기록되어 있습니다.`}
         actions={
-          <Link to="/new" className="btn-primary">
-            <PlusIcon className="h-4 w-4" />새 통
-          </Link>
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-lg border border-gray-200 p-0.5">
+              <button
+                onClick={() => setView('list')}
+                className={cn('rounded-md px-3 py-1.5 text-sm font-medium transition-colors', view === 'list' ? 'bg-brand-50 text-brand-700' : 'text-gray-500 hover:text-gray-800')}
+              >
+                목록
+              </button>
+              <button
+                onClick={() => setView('calendar')}
+                className={cn('rounded-md px-3 py-1.5 text-sm font-medium transition-colors', view === 'calendar' ? 'bg-brand-50 text-brand-700' : 'text-gray-500 hover:text-gray-800')}
+              >
+                캘린더
+              </button>
+            </div>
+            <Link to="/new" className="btn-primary">
+              <PlusIcon className="h-4 w-4" />새 통
+            </Link>
+          </div>
         }
       />
 
@@ -59,7 +79,9 @@ export function TongList() {
         </div>
       </Card>
 
-      {filtered.length === 0 ? (
+      {view === 'calendar' ? (
+        <TongCalendar tongs={filtered} />
+      ) : filtered.length === 0 ? (
         <EmptyState icon={<ArchiveIcon className="h-10 w-10" />} title="조건에 맞는 통이 없습니다." description="필터를 변경하거나 새 통을 만들어 보세요." />
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

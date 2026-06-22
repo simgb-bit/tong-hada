@@ -95,34 +95,6 @@ export interface TongSummary {
   updated_at: string
 }
 
-/** 후속 과제 상태 */
-export type ActionItemStatus = '확인 필요' | '진행 중' | '완료' | '보류'
-
-/** 후속 과제 */
-export interface ActionItem {
-  id: string
-  tong_id: string
-  /** 관련 통명 (조회 편의용) */
-  tong_title: string
-  /** 과제명 */
-  title: string
-  /**
-   * 담당자. AI 가 확정하지 않습니다.
-   * 불명확할 경우 null 이며 UI 에서 "확인 필요" 로 표시합니다.
-   */
-  assignee: string | null
-  /** 담당 조직 id (불명확 시 null) */
-  assignee_org_id: string | null
-  assignee_org_name: string | null
-  /** 기한 (ISO 8601 date) */
-  due_date: string | null
-  status: ActionItemStatus
-  /** 근거 내용 (회의 기록 중 이 과제의 출처) */
-  evidence: string
-  created_at: string
-  updated_at: string
-}
-
 /** 첨부 파일 메타데이터 (음성 파일 등) */
 export interface Attachment {
   id: string

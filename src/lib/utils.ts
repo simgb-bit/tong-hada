@@ -1,6 +1,6 @@
 // 통 HADA - 공통 유틸리티
 
-import type { ActionItemStatus, TongStatus, TongType } from '@/types'
+import type { TongStatus, TongType } from '@/types'
 
 export function cn(...classes: (string | false | null | undefined)[]): string {
   return classes.filter(Boolean).join(' ')
@@ -69,18 +69,5 @@ export function tongTypeColor(type: TongType): string {
       return 'bg-teal-100 text-teal-700'
     case '기타 통':
       return 'bg-gray-100 text-gray-700'
-  }
-}
-
-export function actionStatusColor(status: ActionItemStatus): string {
-  switch (status) {
-    case '확인 필요':
-      return 'bg-red-100 text-red-700'
-    case '진행 중':
-      return 'bg-blue-100 text-blue-700'
-    case '완료':
-      return 'bg-green-100 text-green-700'
-    case '보류':
-      return 'bg-amber-100 text-amber-700'
   }
 }

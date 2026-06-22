@@ -1,18 +1,17 @@
-// 통 상세 - AI 요약 탭 (Mock 생성 + 사용자 수정 + 후속 과제 등록)
+// 통 상세 - AI 요약 탭 (Mock 생성 + 사용자 수정)
 
 import { useMemo, useState } from 'react'
 import { useData } from '@/store/DataContext'
 import { Card, Badge, EmptyState } from '@/components/ui'
-import { SparkIcon, PlusIcon } from '@/components/icons'
+import { SparkIcon } from '@/components/icons'
 import { uid } from '@/lib/db'
 import { generateTongSummary } from '@/lib/ai'
-import type { Tong, TongSummary, ActionItem } from '@/types'
+import type { Tong, TongSummary } from '@/types'
 
 export function SummaryTab({ tong, onGoToInput }: { tong: Tong; onGoToInput: () => void }) {
-  const { inputs, summaries, saveSummary, actionItems, upsertActionItem } = useData()
+  const { inputs, summaries, saveSummary } = useData()
   const existing = useMemo(() => summaries.find((s) => s.tong_id === tong.id), [summaries, tong.id])
   const tongInputs = useMemo(() => inputs.filter((i) => i.tong_id === tong.id), [inputs, tong.id])
-  const tongActionItems = useMemo(() => actionItems.filter((a) => a.tong_id === tong.id), [actionItems, tong.id])
 
   const [draft, setDraft] = useState<TongSummary | null>(existing ?? null)
   const [generating, setGenerating] = useState(false)
@@ -50,25 +49,6 @@ export function SummaryTab({ tong, onGoToInput }: { tong: Tong; onGoToInput: () 
     setDirty(false)
   }
 
-  async function addAsActionItem(title: string) {
-    const nowIso = new Date().toISOString()
-    const item: ActionItem = {
-      id: uid('ai'),
-      tong_id: tong.id,
-      tong_title: tong.title,
-      title,
-      assignee: null, // AI 는 담당자를 확정하지 않음 → 확인 필요
-      assignee_org_id: tong.org_id,
-      assignee_org_name: tong.org_name,
-      due_date: null,
-      status: '확인 필요',
-      evidence: 'AI 요약의 후속 과제 초안에서 생성됨.',
-      created_at: nowIso,
-      updated_at: nowIso,
-    }
-    await upsertActionItem(item)
-  }
-
   if (!draft) {
     return (
       <Card>
@@ -89,8 +69,6 @@ export function SummaryTab({ tong, onGoToInput }: { tong: Tong; onGoToInput: () 
       </Card>
     )
   }
-
-  const existingTitles = new Set(tongActionItems.map((a) => a.title))
 
   return (
     <div className="space-y-5">
@@ -124,7 +102,7 @@ export function SummaryTab({ tong, onGoToInput }: { tong: Tong; onGoToInput: () 
 
       <Card>
         <SummaryField label="6. 후속 과제 (초안)">
-          <p className="mb-3 text-xs text-gray-400">담당자는 AI 가 확정하지 않습니다. 과제로 등록하면 '확인 필요' 상태로 추가됩니다.</p>
+          <p className="mb-3 text-xs text-gray-400">회의에서 도출된 후속 과제 초안입니다. 회의록의 일부로 자유롭게 수정할 수 있습니다.</p>
           <ul className="space-y-2">
             {draft.action_item_drafts.map((d, idx) => (
               <li key={idx} className="flex items-center gap-2">
@@ -137,14 +115,6 @@ export function SummaryTab({ tong, onGoToInput }: { tong: Tong; onGoToInput: () 
                     persist({ ...draft, action_item_drafts: next })
                   }}
                 />
-                <button
-                  className="btn-secondary shrink-0"
-                  disabled={existingTitles.has(d)}
-                  onClick={() => addAsActionItem(d)}
-                  title={existingTitles.has(d) ? '이미 과제로 등록됨' : '후속 과제로 추가'}
-                >
-                  <PlusIcon className="h-4 w-4" />{existingTitles.has(d) ? '등록됨' : '과제 추가'}
-                </button>
               </li>
             ))}
           </ul>
