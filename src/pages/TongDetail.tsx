@@ -1,4 +1,4 @@
-// 통 HADA - 통 상세 (4개 탭: 기본 정보 / 입력 / AI 요약 / 조직 데이터)
+// 통 HADA - 통 상세 (3개 탭: 기본 정보 / 입력 / AI 요약)
 
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -9,9 +9,8 @@ import { TrashIcon } from '@/components/icons'
 import { BasicInfoTab } from '@/pages/tong/BasicInfoTab'
 import { InputTab } from '@/pages/tong/InputTab'
 import { SummaryTab } from '@/pages/tong/SummaryTab'
-import { OrgDataTab } from '@/pages/tong/OrgDataTab'
 
-const TABS = ['기본 정보', '입력', 'AI 요약', '조직 데이터'] as const
+const TABS = ['기본 정보', '입력', 'AI 요약'] as const
 type Tab = (typeof TABS)[number]
 
 export function TongDetail() {
@@ -77,7 +76,6 @@ export function TongDetail() {
       {tab === '기본 정보' && <BasicInfoTab tong={tong} />}
       {tab === '입력' && <InputTab tong={tong} />}
       {tab === 'AI 요약' && <SummaryTab tong={tong} onGoToInput={() => setTab('입력')} />}
-      {tab === '조직 데이터' && <OrgDataTab tong={tong} />}
     </div>
   )
 }

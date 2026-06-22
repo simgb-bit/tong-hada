@@ -7,7 +7,6 @@ import { CalendarPage } from '@/pages/Calendar'
 import { NewTong } from '@/pages/NewTong'
 import { TongList } from '@/pages/TongList'
 import { TongDetail } from '@/pages/TongDetail'
-import { OrgData } from '@/pages/OrgData'
 import { Analytics } from '@/pages/Analytics'
 
 export default function App() {
@@ -29,7 +28,6 @@ export default function App() {
           <Route path="/new" element={<NewTong />} />
           <Route path="/tongs" element={<TongList />} />
           <Route path="/tongs/:id" element={<TongDetail />} />
-          <Route path="/org-data" element={<OrgData />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="*" element={<Home />} />
         </Routes>

@@ -2,10 +2,10 @@
 
 import { Link } from 'react-router-dom'
 import { useData } from '@/store/DataContext'
-import { Card, PageHeader, StatCard, Badge, EmptyState, BarChart } from '@/components/ui'
-import { CalendarIcon, ArchiveIcon, SparkIcon, ClockIcon } from '@/components/icons'
+import { Card, PageHeader, StatCard, Badge, EmptyState } from '@/components/ui'
+import { CalendarIcon, ArchiveIcon, SparkIcon } from '@/components/icons'
 import { formatDateTime, formatDate, isSameDay, tongStatusColor, tongTypeColor } from '@/lib/utils'
-import { recurringKeywords, tongsByOrg } from '@/lib/selectors'
+import { recurringKeywords } from '@/lib/selectors'
 
 export function Home() {
   const data = useData()
@@ -15,11 +15,10 @@ export function Home() {
   const todayTongs = tongs.filter((t) => isSameDay(new Date(t.scheduled_at), today))
   const recentTongs = [...tongs].sort((a, b) => +new Date(b.scheduled_at) - +new Date(a.scheduled_at)).slice(0, 5)
   const keywords = recurringKeywords(data).slice(0, 6)
-  const byOrg = tongsByOrg(data)
 
   return (
     <div>
-      <PageHeader title="홈" subtitle="오늘의 통과 조직 현황을 한눈에 확인하세요." />
+      <PageHeader title="홈" subtitle="오늘의 통과 최근 기록을 한눈에 확인하세요." />
 
       {/* 상단 통계 */}
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -88,11 +87,6 @@ export function Home() {
           )}
         </Card>
 
-        {/* 조직별 통 현황 */}
-        <Card>
-          <SectionTitle icon={<ClockIcon className="h-5 w-5 text-brand-500" />} title="조직별 통 현황" to="/org-data" />
-          <BarChart data={byOrg} />
-        </Card>
       </div>
     </div>
   )
