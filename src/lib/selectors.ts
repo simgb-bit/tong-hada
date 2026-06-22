@@ -4,7 +4,6 @@
 
 import type { FullDataset } from '@/lib/db'
 import { getDescendantOrgIds } from '@/lib/org'
-import type { ActionItem } from '@/types'
 
 /** 빈도 카운트 → 내림차순 정렬된 [라벨, 횟수] 배열 */
 export function countByFrequency(items: string[]): { label: string; value: number }[] {
@@ -21,19 +20,13 @@ export function recurringKeywords(data: FullDataset): { label: string; value: nu
   return countByFrequency(all)
 }
 
-/** 미완료 후속 과제 (완료 제외) */
-export function openActionItems(items: ActionItem[]): ActionItem[] {
-  return items.filter((a) => a.status !== '완료')
-}
-
 /** 특정 조직(하위 포함) 기준으로 데이터 필터링 */
 export function scopeToOrg(data: FullDataset, orgId: string) {
   const ids = getDescendantOrgIds(data.organizations, orgId)
   const tongs = data.tongs.filter((t) => ids.has(t.org_id))
   const tongIds = new Set(tongs.map((t) => t.id))
-  const actionItems = data.actionItems.filter((a) => tongIds.has(a.tong_id))
   const summaries = data.summaries.filter((s) => tongIds.has(s.tong_id))
-  return { orgIds: ids, tongs, actionItems, summaries }
+  return { orgIds: ids, tongs, summaries }
 }
 
 /** 통 유형별 개수 */

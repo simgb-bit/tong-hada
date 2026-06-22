@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useData } from '@/store/DataContext'
 import { PageHeader, Card, StatCard, Badge, EmptyState } from '@/components/ui'
-import { ArchiveIcon, TaskIcon, AlertIcon, OrgIcon, ChevronRight } from '@/components/icons'
+import { ArchiveIcon, OrgIcon, ChevronRight } from '@/components/icons'
 import { getChildren, getOrgPath } from '@/lib/org'
 import { scopeToOrg, countByFrequency } from '@/lib/selectors'
 import { formatDate, tongStatusColor } from '@/lib/utils'
@@ -18,7 +18,6 @@ export function OrgData() {
   const children = useMemo(() => getChildren(data.organizations, currentId), [data.organizations, currentId])
   const scoped = useMemo(() => scopeToOrg(data, currentId), [data, currentId])
 
-  const open = scoped.actionItems.filter((a) => a.status !== '완료')
   const keywords = countByFrequency(scoped.summaries.flatMap((s) => s.recurring_keywords)).slice(0, 8)
   const recentTongs = [...scoped.tongs].sort((a, b) => +new Date(b.scheduled_at) - +new Date(a.scheduled_at)).slice(0, 6)
 
@@ -51,10 +50,8 @@ export function OrgData() {
       </div>
 
       {/* 현재 조직 통계 */}
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-4">
         <StatCard label="통 개수" value={scoped.tongs.length} icon={<ArchiveIcon />} tone="brand" />
-        <StatCard label="후속 과제" value={scoped.actionItems.length} icon={<TaskIcon />} tone="accent" />
-        <StatCard label="미완료 과제" value={open.length} icon={<AlertIcon />} tone="amber" />
         <StatCard label="하위 조직" value={children.length} icon={<OrgIcon />} tone="brand" />
       </div>
 
@@ -68,7 +65,6 @@ export function OrgData() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {children.map((c) => {
                 const cs = scopeToOrg(data, c.id)
-                const cOpen = cs.actionItems.filter((a) => a.status !== '완료').length
                 return (
                   <button
                     key={c.id}
@@ -78,7 +74,7 @@ export function OrgData() {
                     <div>
                       <p className="font-medium text-gray-900">{c.name}</p>
                       <p className="mt-1 text-xs text-gray-400">
-                        통 {cs.tongs.length} · 과제 {cs.actionItems.length} · 미완료 {cOpen}
+                        통 {cs.tongs.length}
                       </p>
                     </div>
                     <ChevronRight className="h-4 w-4 text-gray-300" />

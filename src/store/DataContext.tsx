@@ -14,7 +14,6 @@ import {
 } from 'react'
 import { repo, type FullDataset } from '@/lib/db'
 import type {
-  ActionItem,
   Attachment,
   Employee,
   Organization,
@@ -36,9 +35,6 @@ interface DataContextValue extends FullDataset {
 
   saveSummary: (summary: TongSummary) => Promise<void>
 
-  upsertActionItem: (item: ActionItem) => Promise<void>
-  deleteActionItem: (id: string) => Promise<void>
-
   addAttachment: (att: Attachment) => Promise<void>
 
   setEmployees: (employees: Employee[]) => Promise<void>
@@ -50,7 +46,6 @@ const empty: FullDataset = {
   tongs: [],
   inputs: [],
   summaries: [],
-  actionItems: [],
   attachments: [],
 }
 
@@ -95,7 +90,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       tongs: d.tongs.filter((t) => t.id !== id),
       inputs: d.inputs.filter((x) => x.tong_id !== id),
       summaries: d.summaries.filter((x) => x.tong_id !== id),
-      actionItems: d.actionItems.filter((x) => x.tong_id !== id),
       attachments: d.attachments.filter((x) => x.tong_id !== id),
     }))
   }, [])
@@ -112,20 +106,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const summaries = i >= 0 ? d.summaries.map((s) => (s.tong_id === summary.tong_id ? summary : s)) : [...d.summaries, summary]
       return { ...d, summaries }
     })
-  }, [])
-
-  const upsertActionItem = useCallback(async (item: ActionItem) => {
-    await repo.upsertActionItem(item)
-    setData((d) => {
-      const i = d.actionItems.findIndex((a) => a.id === item.id)
-      const actionItems = i >= 0 ? d.actionItems.map((a) => (a.id === item.id ? item : a)) : [...d.actionItems, item]
-      return { ...d, actionItems }
-    })
-  }, [])
-
-  const deleteActionItem = useCallback(async (id: string) => {
-    await repo.deleteActionItem(id)
-    setData((d) => ({ ...d, actionItems: d.actionItems.filter((a) => a.id !== id) }))
   }, [])
 
   const addAttachment = useCallback(async (att: Attachment) => {
@@ -149,12 +129,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       deleteTong,
       addInput,
       saveSummary,
-      upsertActionItem,
-      deleteActionItem,
       addAttachment,
       setEmployees,
     }),
-    [data, loading, error, refresh, upsertTong, deleteTong, addInput, saveSummary, upsertActionItem, deleteActionItem, addAttachment, setEmployees],
+    [data, loading, error, refresh, upsertTong, deleteTong, addInput, saveSummary, addAttachment, setEmployees],
   )
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>

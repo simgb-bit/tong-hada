@@ -3,32 +3,28 @@
 import { Link } from 'react-router-dom'
 import { useData } from '@/store/DataContext'
 import { Card, PageHeader, StatCard, Badge, EmptyState, BarChart } from '@/components/ui'
-import { CalendarIcon, ArchiveIcon, TaskIcon, SparkIcon, ClockIcon, AlertIcon } from '@/components/icons'
-import { formatDateTime, formatDate, isSameDay, tongStatusColor, tongTypeColor, actionStatusColor, isOverdue } from '@/lib/utils'
-import { recurringKeywords, openActionItems, tongsByOrg } from '@/lib/selectors'
+import { CalendarIcon, ArchiveIcon, SparkIcon, ClockIcon } from '@/components/icons'
+import { formatDateTime, formatDate, isSameDay, tongStatusColor, tongTypeColor } from '@/lib/utils'
+import { recurringKeywords, tongsByOrg } from '@/lib/selectors'
 
 export function Home() {
   const data = useData()
-  const { tongs, actionItems } = data
+  const { tongs } = data
 
   const today = new Date()
   const todayTongs = tongs.filter((t) => isSameDay(new Date(t.scheduled_at), today))
   const recentTongs = [...tongs].sort((a, b) => +new Date(b.scheduled_at) - +new Date(a.scheduled_at)).slice(0, 5)
-  const open = openActionItems(actionItems)
   const keywords = recurringKeywords(data).slice(0, 6)
   const byOrg = tongsByOrg(data)
-  const orgOpenItems = countOpenByOrg(open)
 
   return (
     <div>
       <PageHeader title="홈" subtitle="오늘의 통과 조직 현황을 한눈에 확인하세요." />
 
       {/* 상단 통계 */}
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <StatCard label="오늘 예정된 통" value={todayTongs.length} icon={<CalendarIcon />} tone="brand" />
         <StatCard label="전체 통 기록" value={tongs.length} icon={<ArchiveIcon />} tone="accent" />
-        <StatCard label="미완료 후속 과제" value={open.length} icon={<TaskIcon />} tone="amber" />
-        <StatCard label="확인 필요 과제" value={actionItems.filter((a) => a.status === '확인 필요').length} icon={<AlertIcon />} tone="red" />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -92,38 +88,10 @@ export function Home() {
           )}
         </Card>
 
-        {/* 미완료 후속 과제 */}
-        <Card>
-          <SectionTitle icon={<TaskIcon className="h-5 w-5 text-amber-500" />} title="미완료 후속 과제" to="/action-items" />
-          {open.length === 0 ? (
-            <EmptyState title="미완료 과제가 없습니다." />
-          ) : (
-            <ul className="space-y-2">
-              {open.slice(0, 5).map((a) => (
-                <li key={a.id} className="rounded-xl border border-gray-100 p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-sm font-medium text-gray-900">{a.title}</p>
-                    <Badge className={actionStatusColor(a.status)}>{a.status}</Badge>
-                  </div>
-                  <p className="mt-1 text-xs text-gray-400">
-                    담당: {a.assignee ?? '확인 필요'} · 기한 <span className={isOverdue(a.due_date) ? 'text-red-500' : ''}>{formatDate(a.due_date)}</span>
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-
         {/* 조직별 통 현황 */}
         <Card>
           <SectionTitle icon={<ClockIcon className="h-5 w-5 text-brand-500" />} title="조직별 통 현황" to="/org-data" />
           <BarChart data={byOrg} />
-        </Card>
-
-        {/* 조직별 후속 과제 현황 */}
-        <Card>
-          <SectionTitle icon={<TaskIcon className="h-5 w-5 text-amber-500" />} title="조직별 후속 과제 현황" to="/org-data" />
-          <BarChart data={orgOpenItems} colorClass="bg-amber-500" />
         </Card>
       </div>
     </div>
@@ -144,13 +112,4 @@ function SectionTitle({ icon, title, to }: { icon: React.ReactNode; title: strin
       )}
     </div>
   )
-}
-
-function countOpenByOrg(open: ReturnType<typeof openActionItems>) {
-  const map = new Map<string, number>()
-  for (const a of open) {
-    const key = a.assignee_org_name ?? '미지정'
-    map.set(key, (map.get(key) ?? 0) + 1)
-  }
-  return Array.from(map.entries()).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value)
 }

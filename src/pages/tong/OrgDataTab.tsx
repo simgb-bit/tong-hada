@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useData } from '@/store/DataContext'
 import { Card, StatCard, Badge } from '@/components/ui'
-import { ArchiveIcon, TaskIcon, AlertIcon } from '@/components/icons'
+import { ArchiveIcon } from '@/components/icons'
 import { getOrgPath } from '@/lib/org'
 import { scopeToOrg, countByFrequency } from '@/lib/selectors'
 import { formatDate, tongStatusColor } from '@/lib/utils'
@@ -15,7 +15,6 @@ export function OrgDataTab({ tong }: { tong: Tong }) {
   const path = useMemo(() => getOrgPath(data.organizations, tong.org_id), [data.organizations, tong.org_id])
   const scoped = useMemo(() => scopeToOrg(data, tong.org_id), [data, tong.org_id])
 
-  const open = scoped.actionItems.filter((a) => a.status !== '완료')
   const keywords = countByFrequency(scoped.summaries.flatMap((s) => s.recurring_keywords)).slice(0, 8)
   const recentTongs = [...scoped.tongs].sort((a, b) => +new Date(b.scheduled_at) - +new Date(a.scheduled_at)).slice(0, 5)
 
@@ -34,10 +33,8 @@ export function OrgDataTab({ tong }: { tong: Tong }) {
         <p className="mt-2 text-xs text-gray-400">{tong.org_name} (하위 조직 포함) 의 누적 데이터입니다.</p>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4">
         <StatCard label="통 개수" value={scoped.tongs.length} icon={<ArchiveIcon />} tone="brand" />
-        <StatCard label="후속 과제" value={scoped.actionItems.length} icon={<TaskIcon />} tone="accent" />
-        <StatCard label="미완료 과제" value={open.length} icon={<AlertIcon />} tone="amber" />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

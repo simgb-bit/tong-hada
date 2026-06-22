@@ -10,7 +10,6 @@
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 import { buildSeedBundle } from '@/lib/seed'
 import type {
-  ActionItem,
   Attachment,
   Employee,
   Organization,
@@ -25,7 +24,6 @@ export interface FullDataset {
   tongs: Tong[]
   inputs: TongInput[]
   summaries: TongSummary[]
-  actionItems: ActionItem[]
   attachments: Attachment[]
 }
 
@@ -41,9 +39,6 @@ export interface Repository {
   addInput(input: TongInput): Promise<void>
 
   upsertSummary(summary: TongSummary): Promise<void>
-
-  upsertActionItem(item: ActionItem): Promise<void>
-  deleteActionItem(id: string): Promise<void>
 
   addAttachment(att: Attachment): Promise<void>
 
@@ -75,7 +70,6 @@ class InMemoryRepository implements Repository {
     this.data.tongs = this.data.tongs.filter((t) => t.id !== id)
     this.data.inputs = this.data.inputs.filter((x) => x.tong_id !== id)
     this.data.summaries = this.data.summaries.filter((x) => x.tong_id !== id)
-    this.data.actionItems = this.data.actionItems.filter((x) => x.tong_id !== id)
     this.data.attachments = this.data.attachments.filter((x) => x.tong_id !== id)
   }
 
@@ -87,16 +81,6 @@ class InMemoryRepository implements Repository {
     const i = this.data.summaries.findIndex((s) => s.tong_id === summary.tong_id)
     if (i >= 0) this.data.summaries[i] = summary
     else this.data.summaries.push(summary)
-  }
-
-  async upsertActionItem(item: ActionItem): Promise<void> {
-    const i = this.data.actionItems.findIndex((a) => a.id === item.id)
-    if (i >= 0) this.data.actionItems[i] = item
-    else this.data.actionItems.push(item)
-  }
-
-  async deleteActionItem(id: string): Promise<void> {
-    this.data.actionItems = this.data.actionItems.filter((a) => a.id !== id)
   }
 
   async addAttachment(att: Attachment): Promise<void> {
@@ -121,13 +105,12 @@ class SupabaseRepository implements Repository {
 
   async loadAll(): Promise<FullDataset> {
     const c = this.client
-    const [orgs, emps, tongs, inputs, summaries, items, atts] = await Promise.all([
+    const [orgs, emps, tongs, inputs, summaries, atts] = await Promise.all([
       c.from('organizations').select('*'),
       c.from('employees').select('*'),
       c.from('tongs').select('*'),
       c.from('tong_inputs').select('*'),
       c.from('tong_summaries').select('*'),
-      c.from('action_items').select('*'),
       c.from('attachments').select('*'),
     ])
 
@@ -137,7 +120,6 @@ class SupabaseRepository implements Repository {
       tongs: (tongs.data ?? []) as Tong[],
       inputs: (inputs.data ?? []) as TongInput[],
       summaries: (summaries.data ?? []) as TongSummary[],
-      actionItems: (items.data ?? []) as ActionItem[],
       attachments: (atts.data ?? []) as Attachment[],
     }
 
@@ -145,7 +127,7 @@ class SupabaseRepository implements Repository {
     if (dataset.organizations.length === 0) {
       const seed = buildSeedBundle()
       // 외래키 의존성 순서대로 직렬 삽입한다.
-      //  organizations → (employees, tongs) → (tong_inputs, tong_summaries, action_items)
+      //  organizations → (employees, tongs) → (tong_inputs, tong_summaries)
       const fail = (label: string, error: unknown) => {
         if (error) throw new Error(`시드 주입 실패 (${label}): ${(error as { message?: string }).message ?? error}`)
       }
@@ -157,14 +139,12 @@ class SupabaseRepository implements Repository {
       ])
       fail('employees', empRes.error)
       fail('tongs', tongRes.error)
-      const [inRes, sumRes, aiRes] = await Promise.all([
+      const [inRes, sumRes] = await Promise.all([
         c.from('tong_inputs').insert(seed.inputs),
         c.from('tong_summaries').insert(seed.summaries),
-        c.from('action_items').insert(seed.actionItems),
       ])
       fail('tong_inputs', inRes.error)
       fail('tong_summaries', sumRes.error)
-      fail('action_items', aiRes.error)
 
       return seed
     }
@@ -189,16 +169,6 @@ class SupabaseRepository implements Repository {
 
   async upsertSummary(summary: TongSummary): Promise<void> {
     const { error } = await this.client.from('tong_summaries').upsert(summary, { onConflict: 'tong_id' })
-    if (error) throw error
-  }
-
-  async upsertActionItem(item: ActionItem): Promise<void> {
-    const { error } = await this.client.from('action_items').upsert(item)
-    if (error) throw error
-  }
-
-  async deleteActionItem(id: string): Promise<void> {
-    const { error } = await this.client.from('action_items').delete().eq('id', id)
     if (error) throw error
   }
 
