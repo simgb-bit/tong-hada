@@ -1,9 +1,8 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { Layout } from '@/components/Layout'
 import { useData } from '@/store/DataContext'
 import { Spinner } from '@/components/ui'
 import { Home } from '@/pages/Home'
-import { CalendarPage } from '@/pages/Calendar'
 import { NewTong } from '@/pages/NewTong'
 import { TongList } from '@/pages/TongList'
 import { TongDetail } from '@/pages/TongDetail'
@@ -24,11 +23,12 @@ export default function App() {
       ) : (
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/new" element={<NewTong />} />
           <Route path="/tongs" element={<TongList />} />
           <Route path="/tongs/:id" element={<TongDetail />} />
           <Route path="/analytics" element={<Analytics />} />
+          {/* 통 캘린더는 통 기록함의 뷰로 통합됨 — 기존 링크 호환용 리다이렉트 */}
+          <Route path="/calendar" element={<Navigate to="/tongs" replace />} />
           <Route path="*" element={<Home />} />
         </Routes>
       )}

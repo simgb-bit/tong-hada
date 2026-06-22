@@ -29,7 +29,7 @@ export function Home() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* 오늘 예정된 통 */}
         <Card className="lg:col-span-2">
-          <SectionTitle icon={<CalendarIcon className="h-5 w-5 text-brand-500" />} title="오늘 예정된 통" to="/calendar" />
+          <SectionTitle icon={<CalendarIcon className="h-5 w-5 text-brand-500" />} title="오늘 예정된 통" to="/tongs" />
           {todayTongs.length === 0 ? (
             <EmptyState title="오늘 예정된 통이 없습니다." />
           ) : (

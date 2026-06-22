@@ -4,7 +4,6 @@ import { NavLink } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import {
   HomeIcon,
-  CalendarIcon,
   PlusIcon,
   ArchiveIcon,
   ChartIcon,
@@ -21,7 +20,6 @@ interface NavItem {
 
 const items: NavItem[] = [
   { to: '/', label: '홈', icon: <HomeIcon />, end: true },
-  { to: '/calendar', label: '통 캘린더', icon: <CalendarIcon /> },
   { to: '/new', label: '새 통 만들기', icon: <PlusIcon /> },
   { to: '/tongs', label: '통 기록함', icon: <ArchiveIcon /> },
   { to: '/analytics', label: '분석', icon: <ChartIcon /> },
