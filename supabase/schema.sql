@@ -23,11 +23,22 @@ create table if not exists employees (
   created_at   timestamptz not null default now()
 );
 
+-- ── 통 유형 (Core 단위 커스텀) ───────────────────────────────────────────────
+create table if not exists tong_types (
+  id           text primary key,
+  core_org_id  text not null references organizations (id) on delete cascade,
+  label        text not null,
+  color        text not null default 'gray',
+  sort_order   integer not null default 0,
+  created_at   timestamptz not null default now()
+);
+
 -- ── 통(회의) ────────────────────────────────────────────────────────────────
 create table if not exists tongs (
   id            text primary key,
   title         text not null,
-  type          text not null check (type in ('책임자 통', '주간 통', '상시 통', '기타 통')),
+  -- 통 유형: Core 별 커스텀 라벨(tong_types.label). 고정 CHECK 없음.
+  type          text not null,
   scheduled_at  timestamptz not null,
   org_id        text references organizations (id) on delete set null,
   org_name      text,
@@ -95,6 +106,7 @@ create table if not exists attachments (
 create index if not exists idx_tongs_org on tongs (org_id);
 create index if not exists idx_inputs_tong on tong_inputs (tong_id);
 create index if not exists idx_items_tong on action_items (tong_id);
+create index if not exists idx_tongtypes_core on tong_types (core_org_id);
 
 -- RLS: 이 스키마 실행 후 반드시 supabase/policies.sql 도 실행하세요.
 -- (RLS 가 켜져 있으면 정책 없이는 anon 키의 읽기/쓰기가 모두 차단됩니다.)

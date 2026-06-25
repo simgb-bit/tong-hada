@@ -1,12 +1,13 @@
 // 통 HADA - 좌측 사이드바 메뉴
 
-import { NavLink } from 'react-router-dom'
+import { NavLink, Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
+import { useCurrentUser } from '@/store/CurrentUserContext'
 import {
-  HomeIcon,
   PlusIcon,
   ArchiveIcon,
   ChartIcon,
+  SettingsIcon,
   XIcon,
 } from '@/components/icons'
 import type { ReactNode } from 'react'
@@ -19,11 +20,13 @@ interface NavItem {
 }
 
 const items: NavItem[] = [
-  { to: '/', label: '홈', icon: <HomeIcon />, end: true },
   { to: '/new', label: '새 통 만들기', icon: <PlusIcon /> },
   { to: '/tongs', label: '통 기록함', icon: <ArchiveIcon /> },
   { to: '/analytics', label: '분석', icon: <ChartIcon /> },
 ]
+
+// Core 리더 이상에게만 노출되는 메뉴
+const settingsItem: NavItem = { to: '/settings', label: '설정', icon: <SettingsIcon /> }
 
 interface SidebarProps {
   isOpen?: boolean
@@ -31,6 +34,9 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
+  const { canManageTongTypes } = useCurrentUser()
+  const navItems = canManageTongTypes ? [...items, settingsItem] : items
+
   return (
     <>
       {/* 모바일 백드롭 */}
@@ -48,9 +54,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           isOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
-        {/* 로고 */}
+        {/* 로고 (클릭 시 홈으로 이동) */}
         <div className="flex items-center justify-between px-6 py-5">
-          <img src="/logo.png" alt="통 HADA" className="h-12 w-auto" />
+          <Link to="/" onClick={onClose} className="shrink-0" aria-label="홈으로 이동">
+            <img src="/logo.png" alt="통 HADA" className="h-12 w-auto" />
+          </Link>
           <button
             className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 md:hidden"
             onClick={onClose}
@@ -61,7 +69,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         {/* 메뉴 */}
         <nav className="flex-1 min-h-0 space-y-1 overflow-y-auto px-3 py-2">
-          {items.map((item) => (
+          {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

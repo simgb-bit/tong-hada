@@ -20,6 +20,7 @@ import type {
   Tong,
   TongInput,
   TongSummary,
+  TongTypeDef,
 } from '@/types'
 
 interface DataContextValue extends FullDataset {
@@ -35,6 +36,9 @@ interface DataContextValue extends FullDataset {
 
   saveSummary: (summary: TongSummary) => Promise<void>
 
+  upsertTongType: (typeDef: TongTypeDef) => Promise<void>
+  deleteTongType: (id: string) => Promise<void>
+
   addAttachment: (att: Attachment) => Promise<void>
 
   setEmployees: (employees: Employee[]) => Promise<void>
@@ -46,6 +50,7 @@ const empty: FullDataset = {
   tongs: [],
   inputs: [],
   summaries: [],
+  tongTypes: [],
   attachments: [],
 }
 
@@ -108,6 +113,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
+  const upsertTongType = useCallback(async (typeDef: TongTypeDef) => {
+    await repo.upsertTongType(typeDef)
+    setData((d) => {
+      const i = d.tongTypes.findIndex((t) => t.id === typeDef.id)
+      const tongTypes = i >= 0 ? d.tongTypes.map((t) => (t.id === typeDef.id ? typeDef : t)) : [...d.tongTypes, typeDef]
+      return { ...d, tongTypes }
+    })
+  }, [])
+
+  const deleteTongType = useCallback(async (id: string) => {
+    await repo.deleteTongType(id)
+    setData((d) => ({ ...d, tongTypes: d.tongTypes.filter((t) => t.id !== id) }))
+  }, [])
+
   const addAttachment = useCallback(async (att: Attachment) => {
     await repo.addAttachment(att)
     setData((d) => ({ ...d, attachments: [...d.attachments, att] }))
@@ -129,10 +148,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       deleteTong,
       addInput,
       saveSummary,
+      upsertTongType,
+      deleteTongType,
       addAttachment,
       setEmployees,
     }),
-    [data, loading, error, refresh, upsertTong, deleteTong, addInput, saveSummary, addAttachment, setEmployees],
+    [data, loading, error, refresh, upsertTong, deleteTong, addInput, saveSummary, upsertTongType, deleteTongType, addAttachment, setEmployees],
   )
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>

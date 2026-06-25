@@ -1,6 +1,6 @@
 // 통 HADA - 공통 유틸리티
 
-import type { TongStatus, TongType } from '@/types'
+import type { TongStatus, TongTypeColor, TongTypeDef } from '@/types'
 
 export function cn(...classes: (string | false | null | undefined)[]): string {
   return classes.filter(Boolean).join(' ')
@@ -59,15 +59,20 @@ export function tongStatusColor(status: TongStatus): string {
   }
 }
 
-export function tongTypeColor(type: TongType): string {
-  switch (type) {
-    case '책임자 통':
-      return 'bg-purple-100 text-purple-700'
-    case '주간 통':
-      return 'bg-brand-100 text-brand-700'
-    case '상시 통':
-      return 'bg-teal-100 text-teal-700'
-    case '기타 통':
-      return 'bg-gray-100 text-gray-700'
-  }
+/** 통 유형 색상 팔레트 (팔레트 키 → Tailwind 클래스) */
+export const TONG_TYPE_PALETTE: Record<TongTypeColor, string> = {
+  purple: 'bg-purple-100 text-purple-700',
+  brand: 'bg-brand-100 text-brand-700',
+  teal: 'bg-teal-100 text-teal-700',
+  gray: 'bg-gray-100 text-gray-700',
+  amber: 'bg-amber-100 text-amber-700',
+  green: 'bg-green-100 text-green-700',
+  red: 'bg-red-100 text-red-700',
+  violet: 'bg-violet-100 text-violet-700',
+}
+
+/** 유형 라벨 → 뱃지 클래스 (정의에서 색상 조회, 없으면 회색) */
+export function tongTypeBadgeClass(label: string, defs: TongTypeDef[]): string {
+  const def = defs.find((d) => d.label === label)
+  return def ? TONG_TYPE_PALETTE[def.color] : TONG_TYPE_PALETTE.gray
 }
