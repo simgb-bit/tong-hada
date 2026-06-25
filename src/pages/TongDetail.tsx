@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useData } from '@/store/DataContext'
 import { PageHeader, Badge } from '@/components/ui'
-import { cn, formatDateTime, tongStatusColor, tongTypeColor } from '@/lib/utils'
+import { cn, formatDateTime, tongStatusColor, tongTypeBadgeClass } from '@/lib/utils'
 import { TrashIcon } from '@/components/icons'
 import { BasicInfoTab } from '@/pages/tong/BasicInfoTab'
 import { InputTab } from '@/pages/tong/InputTab'
@@ -15,7 +15,7 @@ type Tab = (typeof TABS)[number]
 
 export function TongDetail() {
   const { id } = useParams<{ id: string }>()
-  const { tongs, deleteTong } = useData()
+  const { tongs, tongTypes, deleteTong } = useData()
   const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('기본 정보')
 
@@ -50,7 +50,7 @@ export function TongDetail() {
       />
 
       <div className="mb-5 flex flex-wrap items-center gap-2">
-        <Badge className={tongTypeColor(tong.type)}>{tong.type}</Badge>
+        <Badge className={tongTypeBadgeClass(tong.type, tongTypes)}>{tong.type}</Badge>
         <Badge className={tongStatusColor(tong.status)}>{tong.status}</Badge>
         {tong.participants.map((p) => (
           <Badge key={p} className="bg-gray-100 text-gray-600">{p}</Badge>

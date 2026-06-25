@@ -4,23 +4,23 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useData } from '@/store/DataContext'
 import { PageHeader, Card, Badge, EmptyState } from '@/components/ui'
-import { SearchIcon, ArchiveIcon, PlusIcon } from '@/components/icons'
-import { cn, formatDateTime, tongStatusColor, tongTypeColor } from '@/lib/utils'
+import { SearchIcon, ArchiveIcon } from '@/components/icons'
+import { cn, formatDateTime, tongStatusColor, tongTypeBadgeClass } from '@/lib/utils'
 import { TongCalendar } from '@/components/TongCalendar'
-import type { TongStatus, TongType } from '@/types'
+import type { TongStatus } from '@/types'
 
 type ViewMode = 'list' | 'calendar'
 
-const TYPE_FILTERS: (TongType | '전체')[] = ['전체', '책임자 통', '주간 통', '상시 통', '기타 통']
 const STATUS_FILTERS: (TongStatus | '전체')[] = ['전체', '예정', '진행 완료', '보류']
 
 export function TongList() {
-  const { tongs, summaries } = useData()
+  const { tongs, summaries, tongTypes } = useData()
   const [q, setQ] = useState('')
-  const [type, setType] = useState<TongType | '전체'>('전체')
+  const [type, setType] = useState<string>('전체')
   const [status, setStatus] = useState<TongStatus | '전체'>('전체')
   const [view, setView] = useState<ViewMode>('list')
 
+  const typeFilters = useMemo(() => ['전체', ...Array.from(new Set(tongs.map((t) => t.type)))], [tongs])
   const summaryByTong = useMemo(() => new Map(summaries.map((s) => [s.tong_id, s])), [summaries])
 
   const filtered = useMemo(() => {
@@ -52,9 +52,6 @@ export function TongList() {
                 캘린더
               </button>
             </div>
-            <Link to="/new" className="btn-primary">
-              <PlusIcon className="h-4 w-4" />새 통
-            </Link>
           </div>
         }
       />
@@ -66,8 +63,8 @@ export function TongList() {
             <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-300" />
             <input className="input pl-9" placeholder="통명, 조직, 안건 검색" value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
-          <select className="input w-auto" value={type} onChange={(e) => setType(e.target.value as TongType | '전체')}>
-            {TYPE_FILTERS.map((t) => (
+          <select className="input w-auto" value={type} onChange={(e) => setType(e.target.value)}>
+            {typeFilters.map((t) => (
               <option key={t}>{t}</option>
             ))}
           </select>
@@ -96,7 +93,7 @@ export function TongList() {
                 <p className="text-xs text-gray-400">{t.org_name} · {formatDateTime(t.scheduled_at)}</p>
                 {sum && <p className="mt-3 line-clamp-2 text-sm text-gray-600">{sum.one_line}</p>}
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <Badge className={tongTypeColor(t.type)}>{t.type}</Badge>
+                  <Badge className={tongTypeBadgeClass(t.type, tongTypes)}>{t.type}</Badge>
                   {t.participants.length > 0 && <span className="text-xs text-gray-400">참석 {t.participants.length}명</span>}
                   {sum && sum.recurring_keywords.slice(0, 2).map((k) => (
                     <Badge key={k} className="bg-violet-50 text-violet-600">#{k}</Badge>

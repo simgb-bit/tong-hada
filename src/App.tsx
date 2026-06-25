@@ -7,6 +7,7 @@ import { NewTong } from '@/pages/NewTong'
 import { TongList } from '@/pages/TongList'
 import { TongDetail } from '@/pages/TongDetail'
 import { Analytics } from '@/pages/Analytics'
+import { Settings } from '@/pages/Settings'
 
 export default function App() {
   const { loading, error } = useData()
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/tongs" element={<TongList />} />
           <Route path="/tongs/:id" element={<TongDetail />} />
           <Route path="/analytics" element={<Analytics />} />
+          <Route path="/settings" element={<Settings />} />
           {/* 통 캘린더는 통 기록함의 뷰로 통합됨 — 기존 링크 호환용 리다이렉트 */}
           <Route path="/calendar" element={<Navigate to="/tongs" replace />} />
           <Route path="*" element={<Home />} />

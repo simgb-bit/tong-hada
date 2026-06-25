@@ -30,8 +30,22 @@ export interface Employee {
   created_at: string
 }
 
-/** 통 유형 */
-export type TongType = '책임자 통' | '주간 통' | '상시 통' | '기타 통'
+/** 통 유형 색상 (팔레트 키) */
+export type TongTypeColor = 'purple' | 'brand' | 'teal' | 'gray' | 'amber' | 'green' | 'red' | 'violet'
+
+/** 통 유형 정의 (Core 단위 커스텀) */
+export interface TongTypeDef {
+  id: string
+  /** 소유 Core 조직 id */
+  core_org_id: string
+  /** 유형 이름 (예: 주간 통) */
+  label: string
+  /** 뱃지 색상 (팔레트 키) */
+  color: TongTypeColor
+  /** 정렬 순서 */
+  sort_order: number
+  created_at: string
+}
 
 /** 통 상태 */
 export type TongStatus = '예정' | '진행 완료' | '보류'
@@ -41,7 +55,8 @@ export interface Tong {
   id: string
   /** 통명 */
   title: string
-  type: TongType
+  /** 통 유형 (소속 Core 의 TongTypeDef.label) */
+  type: string
   /** 일시 (ISO 8601) */
   scheduled_at: string
   /** 주관 조직 id */

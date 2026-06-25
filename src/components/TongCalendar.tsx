@@ -4,15 +4,17 @@
 
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useData } from '@/store/DataContext'
 import { Card, Badge } from '@/components/ui'
 import { ChevronRight } from '@/components/icons'
-import { cn, isSameDay, tongTypeColor, formatDateTime } from '@/lib/utils'
+import { cn, isSameDay, tongTypeBadgeClass, formatDateTime } from '@/lib/utils'
 import type { Tong } from '@/types'
 
 // 데모 시드 데이터(2026-06) 기준 "오늘"
 const TODAY = new Date(2026, 5, 17)
 
 export function TongCalendar({ tongs }: { tongs: Tong[] }) {
+  const { tongTypes } = useData()
   const [cursor, setCursor] = useState(() => new Date(2026, 5, 1)) // 2026-06
   const [selected, setSelected] = useState<Date | null>(TODAY)
 
@@ -103,7 +105,7 @@ export function TongCalendar({ tongs }: { tongs: Tong[] }) {
                   </div>
                   <p className="mt-1 text-xs text-gray-400">{formatDateTime(t.scheduled_at)}</p>
                   <div className="mt-2">
-                    <Badge className={tongTypeColor(t.type)}>{t.type}</Badge>
+                    <Badge className={tongTypeBadgeClass(t.type, tongTypes)}>{t.type}</Badge>
                   </div>
                 </Link>
               </li>

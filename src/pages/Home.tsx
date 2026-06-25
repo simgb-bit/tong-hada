@@ -4,12 +4,12 @@ import { Link } from 'react-router-dom'
 import { useData } from '@/store/DataContext'
 import { Card, PageHeader, StatCard, Badge, EmptyState } from '@/components/ui'
 import { CalendarIcon, ArchiveIcon, SparkIcon } from '@/components/icons'
-import { formatDateTime, formatDate, isSameDay, tongStatusColor, tongTypeColor } from '@/lib/utils'
+import { formatDateTime, formatDate, isSameDay, tongStatusColor, tongTypeBadgeClass } from '@/lib/utils'
 import { recurringKeywords } from '@/lib/selectors'
 
 export function Home() {
   const data = useData()
-  const { tongs } = data
+  const { tongs, tongTypes } = data
 
   const today = new Date()
   const todayTongs = tongs.filter((t) => isSameDay(new Date(t.scheduled_at), today))
@@ -41,7 +41,7 @@ export function Home() {
                       <p className="truncate font-medium text-gray-900">{t.title}</p>
                       <p className="text-xs text-gray-400">{t.org_name} · {formatDateTime(t.scheduled_at)}</p>
                     </div>
-                    <Badge className={tongTypeColor(t.type)}>{t.type}</Badge>
+                    <Badge className={tongTypeBadgeClass(t.type, tongTypes)}>{t.type}</Badge>
                   </Link>
                 </li>
               ))}

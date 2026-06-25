@@ -10,6 +10,7 @@ import type {
   Tong,
   TongInput,
   TongSummary,
+  TongTypeDef,
 } from '@/types'
 
 const now = new Date('2026-06-17T09:00:00+09:00')
@@ -50,6 +51,21 @@ export const seedEmployees: Employee[] = [
   { id: 'emp-4', name: '최하은', email: 'haeun.choi@visang.com', employee_no: 'V2018045', position: 'Core Leader', org_id: 'core-ax', org_name: 'AX추진 Core', created_at: now.toISOString() },
   { id: 'emp-5', name: '정민준', email: 'minjun.jung@visang.com', employee_no: 'V2022150', position: '사원', org_id: 'cell-kids', org_name: '유아콘텐츠 Cell', created_at: now.toISOString() },
   { id: 'emp-6', name: '한소율', email: 'soyul.han@visang.com', employee_no: 'V2017030', position: '책임', org_id: 'core-textbook', org_name: '교재개발 Core', created_at: now.toISOString() },
+]
+
+// ── 통 유형 (Core 단위 커스텀) ─────────────────────────────────────────────
+// 기본 유형 없음 — Core 마다 자체적으로 정의합니다.
+export const seedTongTypes: TongTypeDef[] = [
+  // AX추진 Core
+  { id: 'tt-ax-1', core_org_id: 'core-ax', label: '책임자 통', color: 'purple', sort_order: 1, created_at: now.toISOString() },
+  { id: 'tt-ax-2', core_org_id: 'core-ax', label: '주간 통', color: 'brand', sort_order: 2, created_at: now.toISOString() },
+  { id: 'tt-ax-3', core_org_id: 'core-ax', label: '기타 통', color: 'gray', sort_order: 3, created_at: now.toISOString() },
+  // 디지털콘텐츠 Core
+  { id: 'tt-dg-1', core_org_id: 'core-digital', label: '상시 통', color: 'teal', sort_order: 1, created_at: now.toISOString() },
+  { id: 'tt-dg-2', core_org_id: 'core-digital', label: '주간 통', color: 'brand', sort_order: 2, created_at: now.toISOString() },
+  // 교재개발 Core (전혀 다른 호칭 — Core 별 커스텀 예시)
+  { id: 'tt-tb-1', core_org_id: 'core-textbook', label: '편집 회의', color: 'violet', sort_order: 1, created_at: now.toISOString() },
+  { id: 'tt-tb-2', core_org_id: 'core-textbook', label: '교정 점검 통', color: 'amber', sort_order: 2, created_at: now.toISOString() },
 ]
 
 // ── 통 (회의) ──────────────────────────────────────────────────────────────
@@ -173,6 +189,7 @@ export interface SeedBundle {
   tongs: Tong[]
   inputs: TongInput[]
   summaries: TongSummary[]
+  tongTypes: TongTypeDef[]
   attachments: Attachment[]
 }
 
@@ -184,6 +201,7 @@ export function buildSeedBundle(): SeedBundle {
     tongs: seedTongs,
     inputs: seedInputs,
     summaries: seedSummaries,
+    tongTypes: seedTongTypes,
     attachments: seedAttachments,
   })
 }

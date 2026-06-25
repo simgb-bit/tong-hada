@@ -1,30 +1,53 @@
 // 통 HADA - 새 통 만들기
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useData } from '@/store/DataContext'
+import { useCurrentUser } from '@/store/CurrentUserContext'
 import { PageHeader, Card } from '@/components/ui'
 import { uid } from '@/lib/db'
-import type { Tong, TongStatus, TongType } from '@/types'
+import { getCoreOrgId } from '@/lib/auth'
+import type { Tong, TongStatus } from '@/types'
 
-const TYPES: TongType[] = ['책임자 통', '주간 통', '상시 통', '기타 통']
 const STATUSES: TongStatus[] = ['예정', '진행 완료', '보류']
 
 export function NewTong() {
-  const { organizations, employees, upsertTong } = useData()
+  const { organizations, employees, tongTypes, upsertTong } = useData()
+  const { currentUser } = useCurrentUser()
   const navigate = useNavigate()
 
+  // 주관 조직은 현재 사용자의 소속 조직으로 자동 설정 (선택 불필요)
+  const orgId = currentUser?.org_id ?? ''
+  const org = organizations.find((o) => o.id === orgId)
+
   const [title, setTitle] = useState('')
-  const [type, setType] = useState<TongType>('주간 통')
+  const [type, setType] = useState('')
   const [scheduledAt, setScheduledAt] = useState('2026-06-18T10:00')
-  const [orgId, setOrgId] = useState('')
   const [participants, setParticipants] = useState<string[]>([])
   const [agenda, setAgenda] = useState('')
   const [references, setReferences] = useState('')
   const [status, setStatus] = useState<TongStatus>('예정')
   const [saving, setSaving] = useState(false)
 
-  const canSave = title.trim() && orgId
+  // 소속 Core 의 통 유형만 노출
+  const availableTypes = useMemo(() => {
+    if (!orgId) return []
+    const coreId = getCoreOrgId(organizations, orgId)
+    return tongTypes
+      .filter((t) => t.core_org_id === coreId)
+      .sort((a, b) => a.sort_order - b.sort_order)
+  }, [orgId, organizations, tongTypes])
+
+  // 유형 목록이 준비되면 기본값 자동 보정
+  useEffect(() => {
+    if (availableTypes.length > 0 && !availableTypes.some((t) => t.label === type)) {
+      setType(availableTypes[0].label)
+    } else if (availableTypes.length === 0 && type) {
+      setType('')
+    }
+  }, [availableTypes]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const canSave = title.trim() && orgId && type
 
   function toggleParticipant(name: string) {
     setParticipants((prev) => (prev.includes(name) ? prev.filter((p) => p !== name) : [...prev, name]))
@@ -34,7 +57,6 @@ export function NewTong() {
     e.preventDefault()
     if (!canSave) return
     setSaving(true)
-    const org = organizations.find((o) => o.id === orgId)!
     const nowIso = new Date().toISOString()
     const tong: Tong = {
       id: uid('tong'),
@@ -42,7 +64,7 @@ export function NewTong() {
       type,
       scheduled_at: new Date(scheduledAt).toISOString(),
       org_id: orgId,
-      org_name: org.name,
+      org_name: org?.name ?? '',
       participants,
       agenda: agenda.trim(),
       references: references.trim(),
@@ -72,9 +94,11 @@ export function NewTong() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="label">통 유형</label>
-              <select className="input" value={type} onChange={(e) => setType(e.target.value as TongType)}>
-                {TYPES.map((t) => (
-                  <option key={t}>{t}</option>
+              <select className="input" value={type} onChange={(e) => setType(e.target.value)} disabled={!orgId || availableTypes.length === 0}>
+                {!orgId && <option value="">소속 조직이 없습니다</option>}
+                {orgId && availableTypes.length === 0 && <option value="">등록된 통 유형이 없습니다</option>}
+                {availableTypes.map((t) => (
+                  <option key={t.id} value={t.label}>{t.label}</option>
                 ))}
               </select>
             </div>
@@ -94,16 +118,8 @@ export function NewTong() {
               <input type="datetime-local" className="input" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
             </div>
             <div>
-              <label className="label">주관 조직 *</label>
-              <select className="input" value={orgId} onChange={(e) => setOrgId(e.target.value)}>
-                <option value="">선택하세요</option>
-                {organizations.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {' '.repeat(depthIndent(o.level))}
-                    {o.name}
-                  </option>
-                ))}
-              </select>
+              <label className="label">주관 조직</label>
+              <input className="input bg-gray-50 text-gray-600" value={org ? org.name : '소속 조직 없음'} readOnly />
             </div>
           </div>
 
@@ -137,23 +153,10 @@ export function NewTong() {
             <button type="submit" className="btn-primary w-full" disabled={!canSave || saving}>
               {saving ? '저장 중…' : '통 생성'}
             </button>
-            {!canSave && <p className="mt-2 text-center text-xs text-gray-400">통명과 주관 조직은 필수입니다.</p>}
+            {!canSave && <p className="mt-2 text-center text-xs text-gray-400">통명·통 유형은 필수입니다.</p>}
           </Card>
         </div>
       </form>
     </div>
   )
-}
-
-function depthIndent(level: string): number {
-  switch (level) {
-    case 'CoreGroup':
-      return 2
-    case 'Core':
-      return 4
-    case 'Cell':
-      return 6
-    default:
-      return 0
-  }
 }

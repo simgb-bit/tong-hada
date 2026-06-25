@@ -5,10 +5,12 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Sidebar } from '@/components/Sidebar'
 import { useData } from '@/store/DataContext'
+import { useCurrentUser } from '@/store/CurrentUserContext'
 import { PlusIcon, MenuIcon } from '@/components/icons'
 
 export function Layout({ children }: { children: ReactNode }) {
-  const { backendMode } = useData()
+  const { backendMode, employees } = useData()
+  const { currentUser, setCurrentUserId } = useCurrentUser()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
@@ -33,6 +35,19 @@ export function Layout({ children }: { children: ReactNode }) {
             </div>
           </div>
           <div className="flex items-center gap-2 md:gap-3">
+            {/* 현재 로그인 사용자 (데모용 페르소나 — 추후 Teams 로그인으로 교체) */}
+            <select
+              className="hidden rounded-lg border border-gray-200 px-2 py-1.5 text-xs text-gray-600 sm:block"
+              value={currentUser?.id ?? ''}
+              onChange={(e) => setCurrentUserId(e.target.value)}
+              title="현재 로그인 사용자 (데모용)"
+            >
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.name} · {emp.position}
+                </option>
+              ))}
+            </select>
             <span
               className="chip hidden bg-gray-100 text-gray-500 sm:inline-flex"
               title={backendMode === 'supabase' ? 'Supabase 백엔드에 연결되었습니다.' : '데모용 In-Memory 저장소로 동작 중입니다. (.env 에 Supabase 정보를 설정하세요)'}

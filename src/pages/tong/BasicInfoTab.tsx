@@ -1,19 +1,29 @@
 // 통 상세 - 기본 정보 탭 (조회 + 인라인 편집)
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useData } from '@/store/DataContext'
 import { Card } from '@/components/ui'
 import { formatDateTime } from '@/lib/utils'
-import type { Tong, TongStatus, TongType } from '@/types'
+import { getCoreOrgId } from '@/lib/auth'
+import type { Tong, TongStatus } from '@/types'
 
-const TYPES: TongType[] = ['책임자 통', '주간 통', '상시 통', '기타 통']
 const STATUSES: TongStatus[] = ['예정', '진행 완료', '보류']
 
 export function BasicInfoTab({ tong }: { tong: Tong }) {
-  const { upsertTong } = useData()
+  const { organizations, tongTypes, upsertTong } = useData()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(tong)
   const [saving, setSaving] = useState(false)
+
+  // 이 통이 속한 Core 의 유형 (현재 값이 목록에 없으면 보존)
+  const typeOptions = useMemo(() => {
+    const coreId = getCoreOrgId(organizations, tong.org_id)
+    const labels = tongTypes
+      .filter((t) => t.core_org_id === coreId)
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((t) => t.label)
+    return labels.includes(draft.type) || !draft.type ? labels : [draft.type, ...labels]
+  }, [organizations, tongTypes, tong.org_id, draft.type])
 
   async function save() {
     setSaving(true)
@@ -52,8 +62,8 @@ export function BasicInfoTab({ tong }: { tong: Tong }) {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="label">통 유형</label>
-          <select className="input" value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value as TongType })}>
-            {TYPES.map((t) => <option key={t}>{t}</option>)}
+          <select className="input" value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value })}>
+            {typeOptions.map((t) => <option key={t}>{t}</option>)}
           </select>
         </div>
         <div>

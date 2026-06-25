@@ -16,6 +16,7 @@ import type {
   Tong,
   TongInput,
   TongSummary,
+  TongTypeDef,
 } from '@/types'
 
 export interface FullDataset {
@@ -24,6 +25,7 @@ export interface FullDataset {
   tongs: Tong[]
   inputs: TongInput[]
   summaries: TongSummary[]
+  tongTypes: TongTypeDef[]
   attachments: Attachment[]
 }
 
@@ -39,6 +41,9 @@ export interface Repository {
   addInput(input: TongInput): Promise<void>
 
   upsertSummary(summary: TongSummary): Promise<void>
+
+  upsertTongType(typeDef: TongTypeDef): Promise<void>
+  deleteTongType(id: string): Promise<void>
 
   addAttachment(att: Attachment): Promise<void>
 
@@ -83,6 +88,16 @@ class InMemoryRepository implements Repository {
     else this.data.summaries.push(summary)
   }
 
+  async upsertTongType(typeDef: TongTypeDef): Promise<void> {
+    const i = this.data.tongTypes.findIndex((t) => t.id === typeDef.id)
+    if (i >= 0) this.data.tongTypes[i] = typeDef
+    else this.data.tongTypes.push(typeDef)
+  }
+
+  async deleteTongType(id: string): Promise<void> {
+    this.data.tongTypes = this.data.tongTypes.filter((t) => t.id !== id)
+  }
+
   async addAttachment(att: Attachment): Promise<void> {
     this.data.attachments.push(att)
   }
@@ -105,12 +120,13 @@ class SupabaseRepository implements Repository {
 
   async loadAll(): Promise<FullDataset> {
     const c = this.client
-    const [orgs, emps, tongs, inputs, summaries, atts] = await Promise.all([
+    const [orgs, emps, tongs, inputs, summaries, types, atts] = await Promise.all([
       c.from('organizations').select('*'),
       c.from('employees').select('*'),
       c.from('tongs').select('*'),
       c.from('tong_inputs').select('*'),
       c.from('tong_summaries').select('*'),
+      c.from('tong_types').select('*'),
       c.from('attachments').select('*'),
     ])
 
@@ -120,6 +136,7 @@ class SupabaseRepository implements Repository {
       tongs: (tongs.data ?? []) as Tong[],
       inputs: (inputs.data ?? []) as TongInput[],
       summaries: (summaries.data ?? []) as TongSummary[],
+      tongTypes: (types.data ?? []) as TongTypeDef[],
       attachments: (atts.data ?? []) as Attachment[],
     }
 
@@ -133,12 +150,14 @@ class SupabaseRepository implements Repository {
       }
 
       fail('organizations', (await c.from('organizations').insert(seed.organizations)).error)
-      const [empRes, tongRes] = await Promise.all([
+      const [empRes, tongRes, typeRes] = await Promise.all([
         c.from('employees').insert(seed.employees),
         c.from('tongs').insert(seed.tongs),
+        c.from('tong_types').insert(seed.tongTypes),
       ])
       fail('employees', empRes.error)
       fail('tongs', tongRes.error)
+      fail('tong_types', typeRes.error)
       const [inRes, sumRes] = await Promise.all([
         c.from('tong_inputs').insert(seed.inputs),
         c.from('tong_summaries').insert(seed.summaries),
@@ -169,6 +188,16 @@ class SupabaseRepository implements Repository {
 
   async upsertSummary(summary: TongSummary): Promise<void> {
     const { error } = await this.client.from('tong_summaries').upsert(summary, { onConflict: 'tong_id' })
+    if (error) throw error
+  }
+
+  async upsertTongType(typeDef: TongTypeDef): Promise<void> {
+    const { error } = await this.client.from('tong_types').upsert(typeDef)
+    if (error) throw error
+  }
+
+  async deleteTongType(id: string): Promise<void> {
+    const { error } = await this.client.from('tong_types').delete().eq('id', id)
     if (error) throw error
   }
 

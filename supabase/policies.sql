@@ -10,7 +10,7 @@ do $$
 declare
   t text;
   tables text[] := array[
-    'organizations', 'employees', 'tongs', 'tong_inputs',
+    'organizations', 'employees', 'tong_types', 'tongs', 'tong_inputs',
     'tong_summaries', 'action_items', 'attachments'
   ];
 begin
