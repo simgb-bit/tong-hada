@@ -32,15 +32,6 @@ export function isUpcoming(iso: string): boolean {
   return new Date(iso).getTime() >= Date.now()
 }
 
-/** 기한이 지났는지 (오늘 이전) */
-export function isOverdue(dueDate: string | null): boolean {
-  if (!dueDate) return false
-  const due = new Date(dueDate)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return due.getTime() < today.getTime()
-}
-
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
