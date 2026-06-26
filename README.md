@@ -26,6 +26,7 @@ npm run dev      # http://localhost:5173
 
 1. [Supabase](https://supabase.com) 프로젝트 생성
 2. SQL Editor 에서 [`supabase/schema.sql`](supabase/schema.sql) → [`supabase/policies.sql`](supabase/policies.sql) 순서로 실행
+   - **이미 구버전 스키마로 만든 프로젝트**라면 폴더·공유 기능을 위해 [`supabase/migration_folders.sql`](supabase/migration_folders.sql) 도 추가 실행 (`folders` / `folder_items` / `tong_shares` 테이블 + `tongs.created_by` 컬럼)
 3. `.env` 파일 생성 (`.env.example` 참고)
 
 ```env
@@ -40,9 +41,9 @@ VITE_SUPABASE_ANON_KEY=eyJhbGci...
 | 메뉴 | 설명 |
 |------|------|
 | 홈 | 오늘의 통, 최근 통 기록, 반복 이슈 키워드 대시보드 (좌측 상단 로고 클릭 시 홈 이동) |
-| 새 통 만들기 | 통명·유형·일시·참석자·안건·관련 자료·상태 입력 (주관 조직은 사용자 소속으로 자동 설정) |
-| 통 기록함 | 검색/필터 + **목록 / 캘린더** 뷰 토글 |
-| 통 상세 | 3개 탭 — 기본 정보 / 입력 / AI 요약 |
+| 새 통 만들기 | 통명·유형·일시·참석자·안건·관련 자료·상태 입력 (주관 조직은 사용자 소속으로 자동 설정). 참석자는 **검색해서 추가** |
+| 통 기록함 | 검색/필터 + **목록 / 캘린더** 뷰 토글 + **폴더**(스마트 폴더 + 개인 폴더) + **페이지네이션**(10개/페이지) |
+| 통 상세 | 3개 탭 — 기본 정보 / 입력 / AI 요약 + **공유**(사원에게 보기/편집 권한 부여) |
 | 분석 | 유형별/조직별 통 개수, 반복 키워드, 최근 쟁점 등 |
 | 설정 | **Core 리더 이상 전용** — 통 유형 관리 |
 
@@ -53,6 +54,32 @@ VITE_SUPABASE_ANON_KEY=eyJhbGci...
 - 각 Core 가 자체 통 유형(이름·색상)을 추가/수정/삭제 — **설정** 메뉴에서 관리
 - 새 통 생성 시 **사용자 소속 Core 의 유형만** 선택지로 노출
 - 데이터: `tong_types` 테이블 (Core 단위), `Tong.type` 은 유형 라벨 문자열
+
+### 통 기록함 — 폴더 / 공유
+
+통 기록함은 좌측 폴더 패널로 통을 분류합니다. **스마트 폴더(자동) + 개인 폴더(수동)** 의 1단계 평면 구조이며, 한 통을 **여러 폴더에 동시에** 담을 수 있는 **다중 분류(태그형)** 입니다.
+
+- **스마트 폴더** (고정·자동 분류)
+  - `전체`: 모든 통(현재 인증 전이라 전 조직) / `내 통`: 내가 **진행(`Tong.created_by`)했거나 참석자로 포함된** 통 / `공유받은 통`: 나에게 공유된 통(내가 관여한 건 제외)
+  - 참석 판별은 참석자 저장 라벨 `이름 (조직명)` 으로 매칭 ([`src/lib/selectors.ts`](src/lib/selectors.ts))
+- **개인 폴더** (사용자 생성, 다중 분류)
+  - 만들기 / 이름 변경 / 삭제
+  - 분류 진입점 4가지: ① 카드 `⋯` **다중 체크리스트**, ② **드래그앤드롭**(카드 → 좌측 폴더, 데스크톱), ③ **다중 선택 → 일괄 추가**, ④ **통 상세·통 생성에서 지정**([`src/components/FolderPicker.tsx`](src/components/FolderPicker.tsx))
+  - 폴더는 **사람마다 개인 소유**(`Folder.owner_id`), 통-폴더는 다대다 매핑(`FolderItem`) → 같은 통을 사람마다, 또 여러 폴더에 분류 가능
+- **목록**: 한 줄에 하나(가로 리스트 행) + **페이지네이션** 10개/페이지(필터·폴더 전환 시 1페이지로 리셋)
+- **유형 필터**: 커스텀 유형 정의(`tong_types`) 기준으로 채움 — 통이 없는 유형도 노출, `sort_order` 반영
+- **공유**: 통 상세의 `공유` 버튼 → 사원 검색·선택 + 권한(보기/편집). 공유받은 사람의 `공유받은 통` 에 노출 (`TongShare`)
+- 데이터: `tong_shares` / `folders` / `folder_items` 테이블, `tongs.created_by` 컬럼
+
+> 결정 사항: 하위 폴더 없음(평면), 개인 폴더만(조직 공유 폴더 미도입), 한 통=여러 폴더 허용(태그형). 공유는 통 단위로 별도 제공.
+
+### 참석자 검색 (대규모 사원 대응)
+
+사원 1000명+ 규모를 고려해 전체 목록을 나열하지 않고 **검색해서 추가**합니다 ([`src/components/ParticipantPicker.tsx`](src/components/ParticipantPicker.tsx)).
+
+- 이름·사번·조직으로 검색 → 결과 클릭해 추가, 선택자는 칩으로 표시·제거 (결과 최대 20명)
+- 저장 형식은 **`이름 (조직명)`** — Teams 표기와 동일하게 동명이인 구분 (예: `심규빈 (AX추진 Cell)`)
+- 검색은 현재 `employees` 메모리 배열 기반 — 추후 그룹웨어/MS Graph 연동 시 `searchEmployees()` 만 서버 쿼리로 교체
 
 ### 권한 / 사용자
 
@@ -87,20 +114,20 @@ VITE_SUPABASE_ANON_KEY=eyJhbGci...
 
 ```
 src/
-├── types/            # 도메인 타입 (Organization, Employee, Tong, TongInput, TongSummary, TongTypeDef, Attachment)
+├── types/            # 도메인 타입 (Organization, Employee, Tong, TongInput, TongSummary, TongTypeDef, Attachment, TongShare, Folder, FolderItem)
 ├── lib/
 │   ├── supabase.ts   # Supabase 클라이언트 (단일 인스턴스)
 │   ├── db.ts         # Repository (Supabase ↔ In-Memory 자동 전환)
 │   ├── seed.ts       # 샘플 데이터 (Core별 통 유형 포함)
 │   ├── auth.ts       # 직책/권한 헬퍼 (Core 리더 이상 판별)
 │   ├── ai.ts / stt.ts / teams.ts   # Mock 연동
-│   ├── selectors.ts  # 집계/파생 계산
+│   ├── selectors.ts  # 집계/파생 계산 + 폴더/관여(진행+참석)/공유 셀렉터
 │   └── utils.ts      # 공통 유틸 (날짜/색상 등)
 ├── store/
 │   ├── DataContext.tsx        # 전역 데이터 상태 + CRUD
 │   └── CurrentUserContext.tsx # 현재 로그인 사용자 (페르소나 → 추후 Teams)
-├── components/       # Layout, Sidebar, TongCalendar, 공용 UI, 아이콘
-└── pages/            # 화면 (tong/ 하위는 상세 탭들)
+├── components/       # Layout, Sidebar, TongCalendar, FolderPicker, ParticipantPicker, 공용 UI, 아이콘
+└── pages/            # 화면 (tong/ 하위는 상세 탭들·공유 모달)
 ```
 
 ## 배포 (Vercel)

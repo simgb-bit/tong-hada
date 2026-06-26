@@ -12,9 +12,12 @@ import { buildSeedBundle } from '@/lib/seed'
 import type {
   Attachment,
   Employee,
+  Folder,
+  FolderItem,
   Organization,
   Tong,
   TongInput,
+  TongShare,
   TongSummary,
   TongTypeDef,
 } from '@/types'
@@ -27,6 +30,9 @@ export interface FullDataset {
   summaries: TongSummary[]
   tongTypes: TongTypeDef[]
   attachments: Attachment[]
+  shares: TongShare[]
+  folders: Folder[]
+  folderItems: FolderItem[]
 }
 
 export interface Repository {
@@ -48,6 +54,16 @@ export interface Repository {
   addAttachment(att: Attachment): Promise<void>
 
   replaceEmployees(employees: Employee[]): Promise<void>
+
+  // 공유
+  addShare(share: TongShare): Promise<void>
+  removeShare(id: string): Promise<void>
+
+  // 폴더
+  upsertFolder(folder: Folder): Promise<void>
+  deleteFolder(id: string): Promise<void>
+  addFolderItem(item: FolderItem): Promise<void>
+  removeFolderItem(folderId: string, tongId: string): Promise<void>
 }
 
 export function uid(prefix: string): string {
@@ -76,6 +92,8 @@ class InMemoryRepository implements Repository {
     this.data.inputs = this.data.inputs.filter((x) => x.tong_id !== id)
     this.data.summaries = this.data.summaries.filter((x) => x.tong_id !== id)
     this.data.attachments = this.data.attachments.filter((x) => x.tong_id !== id)
+    this.data.shares = this.data.shares.filter((x) => x.tong_id !== id)
+    this.data.folderItems = this.data.folderItems.filter((x) => x.tong_id !== id)
   }
 
   async addInput(input: TongInput): Promise<void> {
@@ -105,6 +123,35 @@ class InMemoryRepository implements Repository {
   async replaceEmployees(employees: Employee[]): Promise<void> {
     this.data.employees = employees
   }
+
+  async addShare(share: TongShare): Promise<void> {
+    const exists = this.data.shares.some((s) => s.tong_id === share.tong_id && s.shared_with === share.shared_with)
+    if (!exists) this.data.shares.push(share)
+  }
+
+  async removeShare(id: string): Promise<void> {
+    this.data.shares = this.data.shares.filter((s) => s.id !== id)
+  }
+
+  async upsertFolder(folder: Folder): Promise<void> {
+    const i = this.data.folders.findIndex((f) => f.id === folder.id)
+    if (i >= 0) this.data.folders[i] = folder
+    else this.data.folders.push(folder)
+  }
+
+  async deleteFolder(id: string): Promise<void> {
+    this.data.folders = this.data.folders.filter((f) => f.id !== id)
+    this.data.folderItems = this.data.folderItems.filter((x) => x.folder_id !== id)
+  }
+
+  async addFolderItem(item: FolderItem): Promise<void> {
+    const exists = this.data.folderItems.some((x) => x.folder_id === item.folder_id && x.tong_id === item.tong_id)
+    if (!exists) this.data.folderItems.push(item)
+  }
+
+  async removeFolderItem(folderId: string, tongId: string): Promise<void> {
+    this.data.folderItems = this.data.folderItems.filter((x) => !(x.folder_id === folderId && x.tong_id === tongId))
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -120,7 +167,7 @@ class SupabaseRepository implements Repository {
 
   async loadAll(): Promise<FullDataset> {
     const c = this.client
-    const [orgs, emps, tongs, inputs, summaries, types, atts] = await Promise.all([
+    const [orgs, emps, tongs, inputs, summaries, types, atts, shares, folders, folderItems] = await Promise.all([
       c.from('organizations').select('*'),
       c.from('employees').select('*'),
       c.from('tongs').select('*'),
@@ -128,6 +175,9 @@ class SupabaseRepository implements Repository {
       c.from('tong_summaries').select('*'),
       c.from('tong_types').select('*'),
       c.from('attachments').select('*'),
+      c.from('tong_shares').select('*'),
+      c.from('folders').select('*'),
+      c.from('folder_items').select('*'),
     ])
 
     const dataset: FullDataset = {
@@ -138,6 +188,9 @@ class SupabaseRepository implements Repository {
       summaries: (summaries.data ?? []) as TongSummary[],
       tongTypes: (types.data ?? []) as TongTypeDef[],
       attachments: (atts.data ?? []) as Attachment[],
+      shares: (shares.data ?? []) as TongShare[],
+      folders: (folders.data ?? []) as Folder[],
+      folderItems: (folderItems.data ?? []) as FolderItem[],
     }
 
     // 최초 실행 시(조직 데이터가 비어 있으면) 시드 주입
@@ -158,12 +211,18 @@ class SupabaseRepository implements Repository {
       fail('employees', empRes.error)
       fail('tongs', tongRes.error)
       fail('tong_types', typeRes.error)
-      const [inRes, sumRes] = await Promise.all([
+      const [inRes, sumRes, shareRes, folderRes] = await Promise.all([
         c.from('tong_inputs').insert(seed.inputs),
         c.from('tong_summaries').insert(seed.summaries),
+        c.from('tong_shares').insert(seed.shares),
+        c.from('folders').insert(seed.folders),
       ])
       fail('tong_inputs', inRes.error)
       fail('tong_summaries', sumRes.error)
+      fail('tong_shares', shareRes.error)
+      fail('folders', folderRes.error)
+      // folder_items 는 folders 가 먼저 들어간 뒤에 삽입
+      fail('folder_items', (await c.from('folder_items').insert(seed.folderItems)).error)
 
       return seed
     }
@@ -213,6 +272,37 @@ class SupabaseRepository implements Repository {
       const { error } = await c.from('employees').insert(employees)
       if (error) throw error
     }
+  }
+
+  async addShare(share: TongShare): Promise<void> {
+    const { error } = await this.client.from('tong_shares').upsert(share, { onConflict: 'tong_id,shared_with' })
+    if (error) throw error
+  }
+
+  async removeShare(id: string): Promise<void> {
+    const { error } = await this.client.from('tong_shares').delete().eq('id', id)
+    if (error) throw error
+  }
+
+  async upsertFolder(folder: Folder): Promise<void> {
+    const { error } = await this.client.from('folders').upsert(folder)
+    if (error) throw error
+  }
+
+  async deleteFolder(id: string): Promise<void> {
+    // folder_items 는 FK on delete cascade 로 함께 제거됨
+    const { error } = await this.client.from('folders').delete().eq('id', id)
+    if (error) throw error
+  }
+
+  async addFolderItem(item: FolderItem): Promise<void> {
+    const { error } = await this.client.from('folder_items').upsert(item, { onConflict: 'folder_id,tong_id' })
+    if (error) throw error
+  }
+
+  async removeFolderItem(folderId: string, tongId: string): Promise<void> {
+    const { error } = await this.client.from('folder_items').delete().eq('folder_id', folderId).eq('tong_id', tongId)
+    if (error) throw error
   }
 }
 
