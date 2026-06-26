@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useData } from '@/store/DataContext'
 import { useCurrentUser } from '@/store/CurrentUserContext'
-import { PageHeader, Card, Badge } from '@/components/ui'
+import { PageHeader, Card, Badge, ConfirmModal } from '@/components/ui'
 import { TrashIcon, PlusIcon, AlertIcon } from '@/components/icons'
 import { uid } from '@/lib/db'
 import { TONG_TYPE_PALETTE } from '@/lib/utils'
@@ -120,6 +120,7 @@ function TypeRow({
   onDelete: (id: string) => Promise<void>
 }) {
   const [label, setLabel] = useState(def.label)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   function commitLabel() {
     const next = label.trim()
@@ -149,11 +150,20 @@ function TypeRow({
       <Badge className={TONG_TYPE_PALETTE[def.color]}>{label.trim() || '미리보기'}</Badge>
       <button
         className="btn-ghost px-2 py-1 text-gray-400 hover:text-red-500"
-        onClick={() => void onDelete(def.id)}
+        onClick={() => setDeleteOpen(true)}
         title="삭제"
       >
         <TrashIcon className="h-4 w-4" />
       </button>
+
+      <ConfirmModal
+        open={deleteOpen}
+        title="유형을 삭제할까요?"
+        message={`'${def.label}' 유형을 삭제합니다. 이 유형이 적용된 통은 유형 표시가 사라집니다.`}
+        confirmLabel="삭제"
+        onConfirm={() => { setDeleteOpen(false); void onDelete(def.id) }}
+        onCancel={() => setDeleteOpen(false)}
+      />
     </li>
   )
 }

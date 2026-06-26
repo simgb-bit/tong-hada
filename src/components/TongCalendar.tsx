@@ -6,7 +6,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useData } from '@/store/DataContext'
 import { Card, Badge } from '@/components/ui'
-import { ChevronRight } from '@/components/icons'
+import { ChevronRight, ChevronLeft } from '@/components/icons'
 import { cn, isSameDay, tongTypeBadgeClass, formatDateTime } from '@/lib/utils'
 import type { Tong } from '@/types'
 
@@ -19,6 +19,7 @@ export function TongCalendar({ tongs }: { tongs: Tong[] }) {
   const [selected, setSelected] = useState<Date | null>(TODAY)
 
   const { weeks, monthLabel } = useMemo(() => buildMonth(cursor), [cursor])
+  const isCurrentMonth = cursor.getFullYear() === TODAY.getFullYear() && cursor.getMonth() === TODAY.getMonth()
 
   const tongsByDay = useMemo(() => {
     const map = new Map<string, Tong[]>()
@@ -36,17 +37,32 @@ export function TongCalendar({ tongs }: { tongs: Tong[] }) {
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <Card className="lg:col-span-2">
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex items-center gap-3">
           <h2 className="text-lg font-bold text-gray-900">{monthLabel}</h2>
-          <div className="flex items-center gap-1">
-            <button className="btn-secondary" onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}>
-              이전
+          <button
+            className={cn(
+              'rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors',
+              isCurrentMonth
+                ? 'border-gray-200 bg-white text-gray-400 cursor-default'
+                : 'border-brand-300 bg-brand-50 text-brand-600 hover:bg-brand-100',
+            )}
+            onClick={() => setCursor(new Date(TODAY.getFullYear(), TODAY.getMonth(), 1))}
+            disabled={isCurrentMonth}
+          >
+            오늘
+          </button>
+          <div className="ml-auto flex items-center gap-1">
+            <button
+              className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 transition-colors"
+              onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}
+            >
+              <ChevronLeft className="h-4 w-4" />
             </button>
-            <button className="btn-secondary" onClick={() => setCursor(new Date(2026, 5, 1))}>
-              오늘
-            </button>
-            <button className="btn-secondary" onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}>
-              다음
+            <button
+              className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 transition-colors"
+              onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}
+            >
+              <ChevronRight className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -134,5 +150,5 @@ function buildMonth(cursor: Date) {
     }
     weeks.push(week)
   }
-  return { weeks, monthLabel: `${year}년 ${month + 1}월` }
+  return { weeks, monthLabel: `${year}.${month + 1}` }
 }
