@@ -37,6 +37,8 @@ export const TextIcon = (p: IconProps) => base(<><path d="M4 7V4h16v3M9 20h6M12 
 export const MemoIcon = (p: IconProps) => base(<><path d="M11 4H4v16h16v-7" /><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4z" /></>, p)
 export const TrashIcon = (p: IconProps) => base(<><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" /></>, p)
 export const ChevronRight = (p: IconProps) => base(<><path d="M9 18l6-6-6-6" /></>, p)
+export const ChevronLeft = (p: IconProps) => base(<><path d="M15 18l-6-6 6-6" /></>, p)
+export const ChevronDown = (p: IconProps) => base(<><path d="M6 9l6 6 6-6" /></>, p)
 export const AlertIcon = (p: IconProps) => base(<><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /><path d="M12 9v4M12 17h.01" /></>, p)
 export const SearchIcon = (p: IconProps) => base(<><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></>, p)
 export const MenuIcon = (p: IconProps) => base(<><path d="M3 12h18M3 6h18M3 18h18" /></>, p)

@@ -32,6 +32,12 @@ type ViewMode = 'list' | 'calendar'
 /** 좌측 패널 선택: 스마트 폴더 키 또는 개인 폴더 id */
 type Section = 'all' | 'mine' | 'shared' | string
 
+const TODAY = new Date(2026, 5, 17)
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
+function isNew(createdAt: string) {
+  return TODAY.getTime() - new Date(createdAt).getTime() < SEVEN_DAYS_MS
+}
+
 const STATUS_FILTERS: (TongStatus | '전체')[] = ['전체', '예정', '진행 완료', '보류']
 
 /** 목록 한 페이지당 통 개수 */
@@ -384,7 +390,14 @@ export function TongList() {
                   const content = (
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <h3 className="truncate font-semibold text-gray-900">{t.title}</h3>
+                        <div className="flex items-center gap-1.5">
+                          <h3 className="truncate font-semibold text-gray-900">{t.title}</h3>
+                          {isNew(t.created_at) && (
+                            <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
+                              N
+                            </span>
+                          )}
+                        </div>
                         {sum && <p className="mt-0.5 truncate text-sm text-gray-500">{sum.one_line}</p>}
                         <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-400">
                           <span>{t.org_name}</span>

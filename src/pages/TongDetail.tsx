@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useData } from '@/store/DataContext'
 import { useCurrentUser } from '@/store/CurrentUserContext'
-import { PageHeader, Badge } from '@/components/ui'
+import { PageHeader, Badge, ConfirmModal } from '@/components/ui'
 import { cn, formatDateTime, tongStatusColor, tongTypeBadgeClass } from '@/lib/utils'
 import { TrashIcon, ShareIcon } from '@/components/icons'
 import { FolderPicker } from '@/components/FolderPicker'
@@ -25,6 +25,7 @@ export function TongDetail() {
   const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('기본 정보')
   const [shareOpen, setShareOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   const tong = useMemo(() => tongs.find((t) => t.id === id), [tongs, id])
   const shareCount = useMemo(() => shares.filter((s) => s.tong_id === id).length, [shares, id])
@@ -54,7 +55,6 @@ export function TongDetail() {
 
   async function handleDelete() {
     if (!tong) return
-    if (!confirm(`'${tong.title}' 통을 삭제하시겠습니까? 관련 기록도 함께 삭제됩니다.`)) return
     await deleteTong(tong.id)
     navigate('/tongs')
   }
@@ -69,7 +69,7 @@ export function TongDetail() {
             <button className="btn-secondary" onClick={() => setShareOpen(true)}>
               <ShareIcon className="h-4 w-4" />공유{shareCount > 0 ? ` ${shareCount}` : ''}
             </button>
-            <button className="btn-ghost text-red-500 hover:bg-red-50" onClick={handleDelete}>
+            <button className="btn-ghost text-red-500 hover:bg-red-50" onClick={() => setDeleteOpen(true)}>
               <TrashIcon className="h-4 w-4" />삭제
             </button>
           </>
@@ -109,6 +109,15 @@ export function TongDetail() {
       {tab === 'AI 요약' && <SummaryTab tong={tong} onGoToInput={() => setTab('입력')} />}
 
       <ShareTongModal tong={tong} open={shareOpen} onClose={() => setShareOpen(false)} />
+
+      <ConfirmModal
+        open={deleteOpen}
+        title="통을 삭제할까요?"
+        message={`'${tong.title}' 통과 관련 기록이 모두 삭제됩니다. 삭제 후 복구할 수 없습니다.`}
+        confirmLabel="삭제"
+        onConfirm={() => { setDeleteOpen(false); void handleDelete() }}
+        onCancel={() => setDeleteOpen(false)}
+      />
     </div>
   )
 }
