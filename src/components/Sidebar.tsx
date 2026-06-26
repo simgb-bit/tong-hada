@@ -1,5 +1,6 @@
 // 통 HADA - 좌측 사이드바 메뉴
 
+import { useState } from 'react'
 import { NavLink, Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { useCurrentUser } from '@/store/CurrentUserContext'
@@ -9,6 +10,8 @@ import {
   ChartIcon,
   SettingsIcon,
   XIcon,
+  ChevronLeft,
+  ChevronRight,
 } from '@/components/icons'
 import type { ReactNode } from 'react'
 
@@ -25,7 +28,6 @@ const items: NavItem[] = [
   { to: '/analytics', label: '분석', icon: <ChartIcon /> },
 ]
 
-// Core 리더 이상에게만 노출되는 메뉴
 const settingsItem: NavItem = { to: '/settings', label: '설정', icon: <SettingsIcon /> }
 
 interface SidebarProps {
@@ -35,6 +37,7 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { canManageTongTypes } = useCurrentUser()
+  const [collapsed, setCollapsed] = useState(false)
   const navItems = canManageTongTypes ? [...items, settingsItem] : items
 
   return (
@@ -49,14 +52,35 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-30 flex h-screen w-64 shrink-0 flex-col border-r border-gray-100 bg-white transition-transform duration-300 ease-in-out',
-          'md:static md:z-auto md:translate-x-0',
+          'group fixed inset-y-0 left-0 z-30 flex h-screen shrink-0 flex-col border-r border-gray-100 bg-white transition-all duration-300 ease-in-out',
+          'md:relative md:z-auto md:translate-x-0',
+          collapsed ? 'md:w-16 w-64' : 'w-64',
           isOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
-        {/* 로고 (클릭 시 홈으로 이동) */}
-        <div className="flex items-center justify-between px-6 py-5">
-          <Link to="/" onClick={onClose} className="shrink-0" aria-label="홈으로 이동">
+        {/* 접기/펼치기 버튼 — hover 시에만 표시 (데스크탑 전용) */}
+        <button
+          className={cn(
+            'absolute -right-3 top-1/2 z-50 -translate-y-1/2',
+            'hidden md:flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm',
+            'text-gray-400 transition-all duration-150',
+            'opacity-0 group-hover:opacity-100',
+          )}
+          onClick={() => setCollapsed(!collapsed)}
+          title={collapsed ? '사이드바 펼치기' : '사이드바 접기'}
+        >
+          {collapsed
+            ? <ChevronRight className="h-3.5 w-3.5" />
+            : <ChevronLeft className="h-3.5 w-3.5" />
+          }
+        </button>
+
+        {/* 로고: 접혔을 때 데스크탑에서 숨김 */}
+        <div className={cn(
+          'flex items-center justify-between px-6 py-5',
+          collapsed && 'md:hidden',
+        )}>
+          <Link to="/" onClick={onClose} aria-label="홈으로 이동">
             <img src="/logo.png" alt="통 HADA" className="h-12 w-auto" />
           </Link>
           <button
@@ -68,7 +92,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         </div>
 
         {/* 메뉴 */}
-        <nav className="flex-1 min-h-0 space-y-1 overflow-y-auto px-3 py-2">
+        <nav className={cn(
+          'flex-1 min-h-0 space-y-1 py-2',
+          collapsed ? 'md:overflow-visible md:px-2 overflow-y-auto px-3' : 'overflow-y-auto px-3',
+        )}>
           {navItems.map((item) => (
             <NavLink
               key={item.to}
@@ -77,18 +104,29 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               onClick={onClose}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
-                  isActive ? 'bg-brand-50 text-brand-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+                  'group/item relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
+                  collapsed && 'md:justify-center md:px-2',
+                  isActive
+                    ? 'bg-brand-50 text-brand-700'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
                 )
               }
             >
               <span className="shrink-0">{item.icon}</span>
-              {item.label}
+              <span className={cn(collapsed && 'md:hidden')}>{item.label}</span>
+
+              {/* 툴팁: 접힘 + 데스크탑 전용 */}
+              {collapsed && (
+                <span className="pointer-events-none absolute left-full ml-3 z-50 hidden whitespace-nowrap rounded-lg bg-gray-800 px-2.5 py-1.5 text-xs text-white opacity-0 transition-opacity group-hover/item:opacity-100 md:block">
+                  {item.label}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>
 
-        <div className="border-t border-gray-100 px-6 py-4">
+        {/* 하단 설명: 접혔을 때 숨김 */}
+        <div className={cn('border-t border-gray-100 px-6 py-4', collapsed && 'md:hidden')}>
           <p className="text-xs leading-relaxed text-gray-400">
             회의(통) 문화를 표준화하고
             <br />조직 운영 데이터로 축적합니다.

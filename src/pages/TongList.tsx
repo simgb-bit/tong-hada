@@ -11,6 +11,12 @@ import type { TongStatus } from '@/types'
 
 type ViewMode = 'list' | 'calendar'
 
+const TODAY = new Date(2026, 5, 17)
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
+function isNew(createdAt: string) {
+  return TODAY.getTime() - new Date(createdAt).getTime() < SEVEN_DAYS_MS
+}
+
 const STATUS_FILTERS: (TongStatus | '전체')[] = ['전체', '예정', '진행 완료', '보류']
 
 export function TongList() {
@@ -87,7 +93,14 @@ export function TongList() {
             return (
               <Link key={t.id} to={`/tongs/${t.id}`} className="card p-5 transition-shadow hover:shadow-md">
                 <div className="mb-2 flex items-start justify-between gap-2">
-                  <h3 className="font-semibold text-gray-900">{t.title}</h3>
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="font-semibold text-gray-900">{t.title}</h3>
+                    {isNew(t.created_at) && (
+                      <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
+                        N
+                      </span>
+                    )}
+                  </div>
                   <Badge className={tongStatusColor(t.status)}>{t.status}</Badge>
                 </div>
                 <p className="text-xs text-gray-400">{t.org_name} · {formatDateTime(t.scheduled_at)}</p>

@@ -110,6 +110,38 @@ export function BarChart({
   )
 }
 
+/** 삭제 확인 모달 */
+export function ConfirmModal({
+  open,
+  title,
+  message,
+  confirmLabel = '확인',
+  onConfirm,
+  onCancel,
+}: {
+  open: boolean
+  title: string
+  message?: string
+  confirmLabel?: string
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  if (!open) return null
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
+      <div className="relative z-10 w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+        <h2 className="mb-2 text-base font-bold text-gray-900">{title}</h2>
+        {message && <p className="mb-6 text-sm text-gray-500 leading-relaxed">{message}</p>}
+        <div className="flex justify-end gap-2">
+          <button className="btn-secondary" onClick={onCancel}>취소</button>
+          <button className="btn bg-brand-600 text-white" onClick={onConfirm}>{confirmLabel}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /** 모달 */
 export function Modal({
   open,

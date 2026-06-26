@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useData } from '@/store/DataContext'
-import { PageHeader, Badge } from '@/components/ui'
+import { PageHeader, Badge, ConfirmModal } from '@/components/ui'
 import { cn, formatDateTime, tongStatusColor, tongTypeBadgeClass } from '@/lib/utils'
 import { TrashIcon } from '@/components/icons'
 import { BasicInfoTab } from '@/pages/tong/BasicInfoTab'
@@ -18,6 +18,7 @@ export function TongDetail() {
   const { tongs, tongTypes, deleteTong } = useData()
   const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('기본 정보')
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   const tong = useMemo(() => tongs.find((t) => t.id === id), [tongs, id])
 
@@ -32,7 +33,6 @@ export function TongDetail() {
 
   async function handleDelete() {
     if (!tong) return
-    if (!confirm(`'${tong.title}' 통을 삭제하시겠습니까? 관련 기록도 함께 삭제됩니다.`)) return
     await deleteTong(tong.id)
     navigate('/tongs')
   }
@@ -43,7 +43,7 @@ export function TongDetail() {
         title={tong.title}
         subtitle={`${tong.org_name} · ${formatDateTime(tong.scheduled_at)}`}
         actions={
-          <button className="btn-ghost text-red-500 hover:bg-red-50" onClick={handleDelete}>
+          <button className="btn-ghost text-red-500 hover:bg-red-50" onClick={() => setDeleteOpen(true)}>
             <TrashIcon className="h-4 w-4" />삭제
           </button>
         }
@@ -76,6 +76,15 @@ export function TongDetail() {
       {tab === '기본 정보' && <BasicInfoTab tong={tong} />}
       {tab === '입력' && <InputTab tong={tong} />}
       {tab === 'AI 요약' && <SummaryTab tong={tong} onGoToInput={() => setTab('입력')} />}
+
+      <ConfirmModal
+        open={deleteOpen}
+        title="통을 삭제할까요?"
+        message={`'${tong.title}' 통과 관련 기록이 모두 삭제됩니다. 삭제 후 복구할 수 없습니다.`}
+        confirmLabel="삭제"
+        onConfirm={() => { setDeleteOpen(false); void handleDelete() }}
+        onCancel={() => setDeleteOpen(false)}
+      />
     </div>
   )
 }
