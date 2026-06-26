@@ -3,23 +3,45 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useData } from '@/store/DataContext'
+import { useCurrentUser } from '@/store/CurrentUserContext'
 import { PageHeader, Badge } from '@/components/ui'
 import { cn, formatDateTime, tongStatusColor, tongTypeBadgeClass } from '@/lib/utils'
-import { TrashIcon } from '@/components/icons'
+import { TrashIcon, ShareIcon } from '@/components/icons'
+import { FolderPicker } from '@/components/FolderPicker'
+import { myFolders, folderIdsOfTong } from '@/lib/selectors'
 import { BasicInfoTab } from '@/pages/tong/BasicInfoTab'
 import { InputTab } from '@/pages/tong/InputTab'
 import { SummaryTab } from '@/pages/tong/SummaryTab'
+import { ShareTongModal } from '@/pages/tong/ShareTongModal'
 
 const TABS = ['기본 정보', '입력', 'AI 요약'] as const
 type Tab = (typeof TABS)[number]
 
 export function TongDetail() {
   const { id } = useParams<{ id: string }>()
-  const { tongs, tongTypes, deleteTong } = useData()
+  const data = useData()
+  const { tongs, tongTypes, shares, deleteTong, addTongToFolder, removeTongFromFolder } = data
+  const { currentUser } = useCurrentUser()
   const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('기본 정보')
+  const [shareOpen, setShareOpen] = useState(false)
 
   const tong = useMemo(() => tongs.find((t) => t.id === id), [tongs, id])
+  const shareCount = useMemo(() => shares.filter((s) => s.tong_id === id).length, [shares, id])
+
+  const userId = currentUser?.id ?? ''
+  const folders = useMemo(() => myFolders(data, userId), [data, userId])
+  const ownerFolderIdSet = useMemo(() => new Set(folders.map((f) => f.id)), [folders])
+  const tongFolderIds = useMemo(() => (id ? folderIdsOfTong(data, id, ownerFolderIdSet) : []), [data, id, ownerFolderIdSet])
+
+  function toggleFolder(folderId: string, isIn: boolean) {
+    if (!id) return
+    const action = isIn ? removeTongFromFolder(folderId, id) : addTongToFolder(folderId, id)
+    void action.catch((e) => {
+      console.error('[폴더 분류] 실패:', e)
+      window.alert('폴더 분류에 실패했습니다. Supabase를 쓰는 경우 supabase/migration_folders.sql 실행 여부를 확인하세요.')
+    })
+  }
 
   if (!tong) {
     return (
@@ -43,18 +65,27 @@ export function TongDetail() {
         title={tong.title}
         subtitle={`${tong.org_name} · ${formatDateTime(tong.scheduled_at)}`}
         actions={
-          <button className="btn-ghost text-red-500 hover:bg-red-50" onClick={handleDelete}>
-            <TrashIcon className="h-4 w-4" />삭제
-          </button>
+          <>
+            <button className="btn-secondary" onClick={() => setShareOpen(true)}>
+              <ShareIcon className="h-4 w-4" />공유{shareCount > 0 ? ` ${shareCount}` : ''}
+            </button>
+            <button className="btn-ghost text-red-500 hover:bg-red-50" onClick={handleDelete}>
+              <TrashIcon className="h-4 w-4" />삭제
+            </button>
+          </>
         }
       />
 
-      <div className="mb-5 flex flex-wrap items-center gap-2">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <Badge className={tongTypeBadgeClass(tong.type, tongTypes)}>{tong.type}</Badge>
         <Badge className={tongStatusColor(tong.status)}>{tong.status}</Badge>
         {tong.participants.map((p) => (
           <Badge key={p} className="bg-gray-100 text-gray-600">{p}</Badge>
         ))}
+      </div>
+
+      <div className="mb-5">
+        <FolderPicker folders={folders} selectedIds={tongFolderIds} onToggle={toggleFolder} />
       </div>
 
       {/* 탭 헤더 */}
@@ -76,6 +107,8 @@ export function TongDetail() {
       {tab === '기본 정보' && <BasicInfoTab tong={tong} />}
       {tab === '입력' && <InputTab tong={tong} />}
       {tab === 'AI 요약' && <SummaryTab tong={tong} onGoToInput={() => setTab('입력')} />}
+
+      <ShareTongModal tong={tong} open={shareOpen} onClose={() => setShareOpen(false)} />
     </div>
   )
 }

@@ -6,9 +6,12 @@
 import type {
   Attachment,
   Employee,
+  Folder,
+  FolderItem,
   Organization,
   Tong,
   TongInput,
+  TongShare,
   TongSummary,
   TongTypeDef,
 } from '@/types'
@@ -77,10 +80,11 @@ export const seedTongs: Tong[] = [
     scheduled_at: isoOffsetDays(0, 10),
     org_id: 'cell-ax',
     org_name: 'AX추진 Cell',
-    participants: ['김도윤', '이서연', '최하은'],
+    participants: ['김도윤 (AX추진 Cell)', '이서연 (AX추진 Cell)', '최하은 (AX추진 Core)'],
     agenda: '하반기 제품 로드맵 확정, 우선순위 정렬, 리소스 배분',
     references: '2026 상반기 회고 문서, 경쟁사 벤치마크 자료',
     status: '예정',
+    created_by: 'emp-4',
     created_at: isoOffsetDays(-3),
     updated_at: isoOffsetDays(-3),
   },
@@ -91,10 +95,11 @@ export const seedTongs: Tong[] = [
     scheduled_at: isoOffsetDays(-2, 14),
     org_id: 'cell-platform',
     org_name: '플랫폼기획 Cell',
-    participants: ['박지호', '정민준'],
+    participants: ['박지호 (플랫폼기획 Cell)', '정민준 (유아콘텐츠 Cell)'],
     agenda: '신학기 캠페인 진행 현황, 채널별 성과, 예산 집행 점검',
     references: '주간 성과 대시보드',
     status: '진행 완료',
+    created_by: 'emp-3',
     created_at: isoOffsetDays(-9),
     updated_at: isoOffsetDays(-2),
   },
@@ -105,10 +110,11 @@ export const seedTongs: Tong[] = [
     scheduled_at: isoOffsetDays(-5, 11),
     org_id: 'core-ax',
     org_name: 'AX추진 Core',
-    participants: ['최하은', '김도윤', '박지호', '한소율'],
+    participants: ['최하은 (AX추진 Core)', '김도윤 (AX추진 Cell)', '박지호 (플랫폼기획 Cell)', '한소율 (교재개발 Core)'],
     agenda: 'AI 회의 플랫폼 프로젝트 범위 정의, 역할 분담, 마일스톤 설정',
     references: '프로젝트 제안서 v0.9',
     status: '진행 완료',
+    created_by: 'emp-4',
     created_at: isoOffsetDays(-12),
     updated_at: isoOffsetDays(-5),
   },
@@ -119,10 +125,11 @@ export const seedTongs: Tong[] = [
     scheduled_at: isoOffsetDays(2, 15),
     org_id: 'cell-kids',
     org_name: '유아콘텐츠 Cell',
-    participants: ['정민준', '한소율'],
+    participants: ['정민준 (유아콘텐츠 Cell)', '한소율 (교재개발 Core)'],
     agenda: '고객 피드백 기반 서비스 개선 아이디어 수렴 및 우선순위화',
     references: 'VOC 수집 리포트 5월',
     status: '예정',
+    created_by: 'emp-5',
     created_at: isoOffsetDays(-1),
     updated_at: isoOffsetDays(-1),
   },
@@ -183,6 +190,23 @@ export const seedSummaries: TongSummary[] = [
 // ── 첨부 파일 ──────────────────────────────────────────────────────────────
 export const seedAttachments: Attachment[] = []
 
+// ── 통 공유 (데모: tong-2 를 emp-3 → emp-4 에게 공유) ────────────────────────
+export const seedShares: TongShare[] = [
+  { id: 'share-1', tong_id: 'tong-2', shared_with: 'emp-4', shared_by: 'emp-3', permission: 'view', created_at: isoOffsetDays(-2) },
+]
+
+// ── 개인 폴더 (데모: 기본 페르소나 emp-4 의 폴더) ────────────────────────────
+export const seedFolders: Folder[] = [
+  { id: 'folder-1', owner_id: 'emp-4', name: '1분기 회의', parent_id: null, sort_order: 1, created_at: isoOffsetDays(-10) },
+  { id: 'folder-2', owner_id: 'emp-4', name: '공유 자료', parent_id: null, sort_order: 2, created_at: isoOffsetDays(-8) },
+]
+
+// ── 폴더-통 매핑 ─────────────────────────────────────────────────────────────
+export const seedFolderItems: FolderItem[] = [
+  { folder_id: 'folder-1', tong_id: 'tong-1', added_at: isoOffsetDays(-9) },
+  { folder_id: 'folder-2', tong_id: 'tong-2', added_at: isoOffsetDays(-2) },
+]
+
 export interface SeedBundle {
   organizations: Organization[]
   employees: Employee[]
@@ -191,6 +215,9 @@ export interface SeedBundle {
   summaries: TongSummary[]
   tongTypes: TongTypeDef[]
   attachments: Attachment[]
+  shares: TongShare[]
+  folders: Folder[]
+  folderItems: FolderItem[]
 }
 
 /** 깊은 복사된 시드 번들을 반환 (In-Memory 저장소 초기화용) */
@@ -203,6 +230,9 @@ export function buildSeedBundle(): SeedBundle {
     summaries: seedSummaries,
     tongTypes: seedTongTypes,
     attachments: seedAttachments,
+    shares: seedShares,
+    folders: seedFolders,
+    folderItems: seedFolderItems,
   })
 }
 

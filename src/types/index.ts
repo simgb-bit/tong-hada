@@ -69,8 +69,45 @@ export interface Tong {
   /** 관련 자료 (텍스트/링크) */
   references: string
   status: TongStatus
+  /** 통을 진행(생성)한 사원 id. "내 통" 판별 근거 */
+  created_by: string
   created_at: string
   updated_at: string
+}
+
+/** 통 공유 권한 */
+export type SharePermission = 'view' | 'edit'
+
+/** 통 공유 관계 (특정 사원에게 통을 공유). "공유받은 통" 판별 근거 */
+export interface TongShare {
+  id: string
+  tong_id: string
+  /** 공유 대상 사원 id */
+  shared_with: string
+  /** 공유한 사원 id */
+  shared_by: string
+  permission: SharePermission
+  created_at: string
+}
+
+/** 통 기록함 개인 폴더 (사원마다 개인 소유, 1단계 평면 구조) */
+export interface Folder {
+  id: string
+  /** 폴더 소유 사원 id */
+  owner_id: string
+  name: string
+  /** 하위 폴더용 (현재 MVP 는 항상 null — 평면 구조). 추후 확장 대비 필드 */
+  parent_id: string | null
+  /** 정렬 순서 */
+  sort_order: number
+  created_at: string
+}
+
+/** 폴더-통 매핑 (어떤 통이 어떤 폴더에 담겼는지). 폴더가 개인 소유이므로 분류는 개인화됨 */
+export interface FolderItem {
+  folder_id: string
+  tong_id: string
+  added_at: string
 }
 
 /** 통 입력 방식 */

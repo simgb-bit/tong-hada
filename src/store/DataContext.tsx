@@ -16,9 +16,11 @@ import { repo, type FullDataset } from '@/lib/db'
 import type {
   Attachment,
   Employee,
+  Folder,
   Organization,
   Tong,
   TongInput,
+  TongShare,
   TongSummary,
   TongTypeDef,
 } from '@/types'
@@ -42,6 +44,16 @@ interface DataContextValue extends FullDataset {
   addAttachment: (att: Attachment) => Promise<void>
 
   setEmployees: (employees: Employee[]) => Promise<void>
+
+  addShare: (share: TongShare) => Promise<void>
+  removeShare: (id: string) => Promise<void>
+
+  upsertFolder: (folder: Folder) => Promise<void>
+  deleteFolder: (id: string) => Promise<void>
+  /** 통을 폴더에 추가 (다중 분류 — 이미 있으면 무시) */
+  addTongToFolder: (folderId: string, tongId: string) => Promise<void>
+  /** 통을 폴더에서 제거 */
+  removeTongFromFolder: (folderId: string, tongId: string) => Promise<void>
 }
 
 const empty: FullDataset = {
@@ -52,6 +64,9 @@ const empty: FullDataset = {
   summaries: [],
   tongTypes: [],
   attachments: [],
+  shares: [],
+  folders: [],
+  folderItems: [],
 }
 
 const DataContext = createContext<DataContextValue | null>(null)
@@ -137,6 +152,51 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setData((d) => ({ ...d, employees }))
   }, [])
 
+  const addShare = useCallback(async (share: TongShare) => {
+    await repo.addShare(share)
+    setData((d) => {
+      const exists = d.shares.some((s) => s.tong_id === share.tong_id && s.shared_with === share.shared_with)
+      return exists ? d : { ...d, shares: [...d.shares, share] }
+    })
+  }, [])
+
+  const removeShare = useCallback(async (id: string) => {
+    await repo.removeShare(id)
+    setData((d) => ({ ...d, shares: d.shares.filter((s) => s.id !== id) }))
+  }, [])
+
+  const upsertFolder = useCallback(async (folder: Folder) => {
+    await repo.upsertFolder(folder)
+    setData((d) => {
+      const i = d.folders.findIndex((f) => f.id === folder.id)
+      const folders = i >= 0 ? d.folders.map((f) => (f.id === folder.id ? folder : f)) : [...d.folders, folder]
+      return { ...d, folders }
+    })
+  }, [])
+
+  const deleteFolder = useCallback(async (id: string) => {
+    await repo.deleteFolder(id)
+    setData((d) => ({
+      ...d,
+      folders: d.folders.filter((f) => f.id !== id),
+      folderItems: d.folderItems.filter((x) => x.folder_id !== id),
+    }))
+  }, [])
+
+  const addTongToFolder = useCallback(async (folderId: string, tongId: string) => {
+    const item = { folder_id: folderId, tong_id: tongId, added_at: new Date().toISOString() }
+    await repo.addFolderItem(item)
+    setData((d) => {
+      if (d.folderItems.some((x) => x.folder_id === folderId && x.tong_id === tongId)) return d
+      return { ...d, folderItems: [...d.folderItems, item] }
+    })
+  }, [])
+
+  const removeTongFromFolder = useCallback(async (folderId: string, tongId: string) => {
+    await repo.removeFolderItem(folderId, tongId)
+    setData((d) => ({ ...d, folderItems: d.folderItems.filter((x) => !(x.folder_id === folderId && x.tong_id === tongId)) }))
+  }, [])
+
   const value = useMemo<DataContextValue>(
     () => ({
       ...data,
@@ -152,8 +212,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       deleteTongType,
       addAttachment,
       setEmployees,
+      addShare,
+      removeShare,
+      upsertFolder,
+      deleteFolder,
+      addTongToFolder,
+      removeTongFromFolder,
     }),
-    [data, loading, error, refresh, upsertTong, deleteTong, addInput, saveSummary, upsertTongType, deleteTongType, addAttachment, setEmployees],
+    [data, loading, error, refresh, upsertTong, deleteTong, addInput, saveSummary, upsertTongType, deleteTongType, addAttachment, setEmployees, addShare, removeShare, upsertFolder, deleteFolder, addTongToFolder, removeTongFromFolder],
   )
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>

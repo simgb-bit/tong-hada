@@ -5,16 +5,23 @@ import { useNavigate } from 'react-router-dom'
 import { useData } from '@/store/DataContext'
 import { useCurrentUser } from '@/store/CurrentUserContext'
 import { PageHeader, Card } from '@/components/ui'
+import { ParticipantPicker } from '@/components/ParticipantPicker'
+import { FolderPicker } from '@/components/FolderPicker'
 import { uid } from '@/lib/db'
 import { getCoreOrgId } from '@/lib/auth'
+import { myFolders } from '@/lib/selectors'
 import type { Tong, TongStatus } from '@/types'
 
 const STATUSES: TongStatus[] = ['예정', '진행 완료', '보류']
 
 export function NewTong() {
-  const { organizations, employees, tongTypes, upsertTong } = useData()
+  const data = useData()
+  const { organizations, employees, tongTypes, upsertTong, addTongToFolder } = data
   const { currentUser } = useCurrentUser()
   const navigate = useNavigate()
+
+  const folders = useMemo(() => myFolders(data, currentUser?.id ?? ''), [data, currentUser?.id])
+  const [folderIds, setFolderIds] = useState<string[]>([])
 
   // 주관 조직은 현재 사용자의 소속 조직으로 자동 설정 (선택 불필요)
   const orgId = currentUser?.org_id ?? ''
@@ -49,10 +56,6 @@ export function NewTong() {
 
   const canSave = title.trim() && orgId && type
 
-  function toggleParticipant(name: string) {
-    setParticipants((prev) => (prev.includes(name) ? prev.filter((p) => p !== name) : [...prev, name]))
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!canSave) return
@@ -69,11 +72,14 @@ export function NewTong() {
       agenda: agenda.trim(),
       references: references.trim(),
       status,
+      created_by: currentUser?.id ?? '',
       created_at: nowIso,
       updated_at: nowIso,
     }
     try {
       await upsertTong(tong)
+      // 선택한 폴더에 분류 (있을 때만)
+      if (folderIds.length) await Promise.all(folderIds.map((fid) => addTongToFolder(fid, tong.id)))
       navigate(`/tongs/${tong.id}`)
     } finally {
       setSaving(false)
@@ -137,16 +143,18 @@ export function NewTong() {
         <div className="space-y-6">
           <Card>
             <label className="label">참석자</label>
-            <p className="mb-3 text-xs text-gray-400">연동된 사원 목록에서 선택합니다.</p>
-            <div className="max-h-72 space-y-1 overflow-y-auto">
-              {employees.map((emp) => (
-                <label key={emp.id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-50">
-                  <input type="checkbox" checked={participants.includes(emp.name)} onChange={() => toggleParticipant(emp.name)} className="rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
-                  <span className="text-sm text-gray-700">{emp.name}</span>
-                  <span className="text-xs text-gray-400">{emp.position} · {emp.org_name}</span>
-                </label>
-              ))}
-            </div>
+            <p className="mb-3 text-xs text-gray-400">이름·사번·조직으로 검색해 추가합니다.</p>
+            <ParticipantPicker employees={employees} value={participants} onChange={setParticipants} />
+          </Card>
+
+          <Card>
+            <label className="label">폴더 분류</label>
+            <p className="mb-3 text-xs text-gray-400">통을 만들면서 내 폴더로 바로 분류할 수 있습니다. (선택)</p>
+            <FolderPicker
+              folders={folders}
+              selectedIds={folderIds}
+              onToggle={(fid, isIn) => setFolderIds((prev) => (isIn ? prev.filter((x) => x !== fid) : [...prev, fid]))}
+            />
           </Card>
 
           <Card>
