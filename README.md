@@ -26,7 +26,11 @@ npm run dev      # http://localhost:5173
 
 1. [Supabase](https://supabase.com) 프로젝트 생성
 2. SQL Editor 에서 [`supabase/schema.sql`](supabase/schema.sql) → [`supabase/policies.sql`](supabase/policies.sql) 순서로 실행
-   - **이미 구버전 스키마로 만든 프로젝트**라면 폴더·공유 기능을 위해 [`supabase/migration_folders.sql`](supabase/migration_folders.sql) 도 추가 실행 (`folders` / `folder_items` / `tong_shares` 테이블 + `tongs.created_by` 컬럼)
+   - **이미 구버전 스키마로 만든 프로젝트**는 아래 마이그레이션을 추가 실행:
+     - [`migration_folders.sql`](supabase/migration_folders.sql) — 폴더·공유 (`folders`/`folder_items`/`tong_shares` + `tongs.created_by`)
+     - [`migration_trash.sql`](supabase/migration_trash.sql) — 휴지통 (`tongs.deleted_at`)
+     - [`migration_audio_retention.sql`](supabase/migration_audio_retention.sql) — 음원 보관 (`attachments.expires_at` + `recordings` 버킷)
+     - [`cron_purge_recordings.sql`](supabase/cron_purge_recordings.sql) — 음원 90일 자동 삭제(pg_cron)
 3. `.env` 파일 생성 (`.env.example` 참고)
 
 ```env
@@ -42,8 +46,8 @@ VITE_SUPABASE_ANON_KEY=eyJhbGci...
 |------|------|
 | 홈 | 오늘의 통, 최근 통 기록, 반복 이슈 키워드 대시보드 (좌측 상단 로고 클릭 시 홈 이동) |
 | 새 통 만들기 | 통명·유형·일시·참석자·안건·관련 자료·상태 입력 (주관 조직은 사용자 소속으로 자동 설정). 참석자는 **검색해서 추가** |
-| 통 기록함 | 검색/필터 + **목록 / 캘린더** 뷰 토글 + **폴더**(스마트 폴더 + 개인 폴더) + **페이지네이션**(10개/페이지) |
-| 통 상세 | 3개 탭 — 기본 정보 / 입력 / AI 요약 + **공유**(사원에게 보기/편집 권한 부여) |
+| 통 기록함 | 검색/필터 + **목록 / 캘린더** 뷰 토글 + **폴더**(스마트 폴더 + 개인 폴더) + **휴지통** + **페이지네이션**(10개/페이지) |
+| 통 상세 | 3개 탭 — 기본 정보 / 입력 / AI 요약 + **공유**(사원에게 보기/편집 권한 부여) + 삭제 시 **휴지통 이동** |
 | 분석 | 유형별/조직별 통 개수, 반복 키워드, 최근 쟁점 등 |
 | 설정 | **Core 리더 이상 전용** — 통 유형 관리 |
 
@@ -60,7 +64,7 @@ VITE_SUPABASE_ANON_KEY=eyJhbGci...
 통 기록함은 좌측 폴더 패널로 통을 분류합니다. **스마트 폴더(자동) + 개인 폴더(수동)** 의 1단계 평면 구조이며, 한 통을 **여러 폴더에 동시에** 담을 수 있는 **다중 분류(태그형)** 입니다.
 
 - **스마트 폴더** (고정·자동 분류)
-  - `전체`: 모든 통(현재 인증 전이라 전 조직) / `내 통`: 내가 **진행(`Tong.created_by`)했거나 참석자로 포함된** 통 / `공유받은 통`: 나에게 공유된 통(내가 관여한 건 제외)
+  - `전체`: 모든 통(현재 인증 전이라 전 조직) / `내 통`: 내가 **진행(`Tong.created_by`)했거나 참석자로 포함된** 통 / `공유받은 통`: 나에게 공유된 통(내가 관여한 건 제외) / `휴지통`: 삭제(소프트, `Tong.deleted_at`)한 통 → 복구·영구삭제
   - 참석 판별은 참석자 저장 라벨 `이름 (조직명)` 으로 매칭 ([`src/lib/selectors.ts`](src/lib/selectors.ts))
 - **개인 폴더** (사용자 생성, 다중 분류)
   - 만들기 / 이름 변경 / 삭제
@@ -110,6 +114,15 @@ VITE_SUPABASE_ANON_KEY=eyJhbGci...
 
 > 마이크 녹음 자체는 브라우저 `MediaRecorder` 로 실제 동작하며, 녹음 결과의 텍스트 변환만 Mock(STT) 입니다.
 
+### 음원 보관 / 90일 자동 삭제
+
+녹음·업로드한 **음원 원본은 Supabase Storage(`recordings`)에 보관**하고, 업로드 후 **90일이 지나면 자동 파기**합니다. (요약 텍스트는 영구 보관)
+
+- 업로드: [`src/lib/storage.ts`](src/lib/storage.ts) — `Attachment.expires_at = 업로드 + 90일`. 첨부 목록에 "자동 삭제 예정 / 만료" 표시
+- 자동 삭제: [`supabase/cron_purge_recordings.sql`](supabase/cron_purge_recordings.sql) — `pg_cron` 일일 작업이 만료 음원을 Storage 에서 삭제
+- Supabase 미설정(데모) 모드에서는 음원을 보관하지 않습니다(텍스트 변환만).
+- ⚠️ 개인정보(녹취)이므로 운영 전환 시 Storage 접근정책을 인증·소유자 기반으로 강화 필요
+
 ## 프로젝트 구조
 
 ```
@@ -121,6 +134,7 @@ src/
 │   ├── seed.ts       # 샘플 데이터 (Core별 통 유형 포함)
 │   ├── auth.ts       # 직책/권한 헬퍼 (Core 리더 이상 판별)
 │   ├── ai.ts / stt.ts / teams.ts   # Mock 연동
+│   ├── storage.ts    # 음원 Storage 업로드 + 90일 보존기간 계산
 │   ├── selectors.ts  # 집계/파생 계산 + 폴더/관여(진행+참석)/공유 셀렉터
 │   └── utils.ts      # 공통 유틸 (날짜/색상 등)
 ├── store/

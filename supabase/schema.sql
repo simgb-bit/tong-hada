@@ -47,6 +47,7 @@ create table if not exists tongs (
   "references"  text default '',
   status        text not null check (status in ('예정', '진행 완료', '보류')),
   created_by    text references employees (id) on delete set null,
+  deleted_at    timestamptz,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
@@ -100,7 +101,9 @@ create table if not exists attachments (
   file_size     bigint not null default 0,
   mime_type     text,
   storage_path  text default '',
-  uploaded_at   timestamptz not null default now()
+  uploaded_at   timestamptz not null default now(),
+  -- 음원 자동 삭제 만료 시각 (업로드 + 90일). null 이면 만료 없음
+  expires_at    timestamptz
 );
 
 -- ── 통 공유 (특정 사원에게 통 공유) ──────────────────────────────────────────

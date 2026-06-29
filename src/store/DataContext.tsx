@@ -31,7 +31,15 @@ interface DataContextValue extends FullDataset {
   backendMode: 'supabase' | 'memory'
   refresh: () => Promise<void>
 
+  /** 휴지통에 있는 통 (deleted_at != null) — tongs 에는 포함되지 않음 */
+  trashedTongs: Tong[]
+
   upsertTong: (tong: Tong) => Promise<void>
+  /** 휴지통으로 이동 (소프트 삭제) */
+  trashTong: (id: string) => Promise<void>
+  /** 휴지통에서 복구 */
+  restoreTong: (id: string) => Promise<void>
+  /** 영구 삭제 (관련 기록 포함) */
   deleteTong: (id: string) => Promise<void>
 
   addInput: (input: TongInput) => Promise<void>
@@ -103,6 +111,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
+  const trashTong = useCallback(async (id: string) => {
+    const deletedAt = new Date().toISOString()
+    await repo.setTongDeleted(id, deletedAt)
+    setData((d) => ({
+      ...d,
+      tongs: d.tongs.map((t) => (t.id === id ? { ...t, deleted_at: deletedAt } : t)),
+    }))
+  }, [])
+
+  const restoreTong = useCallback(async (id: string) => {
+    await repo.setTongDeleted(id, null)
+    setData((d) => ({
+      ...d,
+      tongs: d.tongs.map((t) => (t.id === id ? { ...t, deleted_at: null } : t)),
+    }))
+  }, [])
+
   const deleteTong = useCallback(async (id: string) => {
     await repo.deleteTong(id)
     setData((d) => ({
@@ -111,6 +136,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       inputs: d.inputs.filter((x) => x.tong_id !== id),
       summaries: d.summaries.filter((x) => x.tong_id !== id),
       attachments: d.attachments.filter((x) => x.tong_id !== id),
+      shares: d.shares.filter((x) => x.tong_id !== id),
+      folderItems: d.folderItems.filter((x) => x.tong_id !== id),
     }))
   }, [])
 
@@ -197,14 +224,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setData((d) => ({ ...d, folderItems: d.folderItems.filter((x) => !(x.folder_id === folderId && x.tong_id === tongId)) }))
   }, [])
 
+  // 휴지통 통은 일반 tongs 에서 제외하고 trashedTongs 로 분리해 노출한다.
+  const activeTongs = useMemo(() => data.tongs.filter((t) => !t.deleted_at), [data.tongs])
+  const trashedTongs = useMemo(() => data.tongs.filter((t) => !!t.deleted_at), [data.tongs])
+
   const value = useMemo<DataContextValue>(
     () => ({
       ...data,
+      tongs: activeTongs,
+      trashedTongs,
       loading,
       error,
       backendMode: repo.mode,
       refresh,
       upsertTong,
+      trashTong,
+      restoreTong,
       deleteTong,
       addInput,
       saveSummary,
@@ -219,7 +254,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addTongToFolder,
       removeTongFromFolder,
     }),
-    [data, loading, error, refresh, upsertTong, deleteTong, addInput, saveSummary, upsertTongType, deleteTongType, addAttachment, setEmployees, addShare, removeShare, upsertFolder, deleteFolder, addTongToFolder, removeTongFromFolder],
+    [data, activeTongs, trashedTongs, loading, error, refresh, upsertTong, trashTong, restoreTong, deleteTong, addInput, saveSummary, upsertTongType, deleteTongType, addAttachment, setEmployees, addShare, removeShare, upsertFolder, deleteFolder, addTongToFolder, removeTongFromFolder],
   )
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>

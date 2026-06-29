@@ -45,7 +45,7 @@ const PAGE_SIZE = 10
 
 export function TongList() {
   const data = useData()
-  const { tongs, summaries, tongTypes, upsertFolder, deleteFolder, addTongToFolder, removeTongFromFolder } = data
+  const { tongs, trashedTongs, summaries, tongTypes, upsertFolder, deleteFolder, addTongToFolder, removeTongFromFolder, restoreTong, deleteTong } = data
   const { currentUser } = useCurrentUser()
   const userId = currentUser?.id ?? ''
 
@@ -82,8 +82,11 @@ export function TongList() {
     if (section === 'all') return tongs
     if (section === 'mine') return myTongs(data, currentUser)
     if (section === 'shared') return sharedWithMeTongs(data, currentUser)
+    if (section === 'trash') return trashedTongs
     return tongsInFolder(data, section) // 폴더 id
-  }, [section, tongs, data, currentUser])
+  }, [section, tongs, trashedTongs, data, currentUser])
+
+  const isTrash = section === 'trash'
 
   // 유형 필터: 커스텀 유형 정의(tongTypes)를 기준으로 채우고,
   // 정의에 없지만 통에 쓰인 유형도 빠지지 않게 합쳐서 표시한다.
@@ -189,6 +192,24 @@ export function TongList() {
     }
   }
 
+  // ── 휴지통 ────────────────────────────────────────────────────────────────────
+  async function handleRestore(id: string) {
+    try {
+      await restoreTong(id)
+    } catch (e) {
+      reportError('복구', e)
+    }
+  }
+
+  async function handlePermanentDelete(title: string, id: string) {
+    if (!window.confirm(`'${title}' 통을 영구 삭제할까요? 입력·요약·첨부 등 관련 기록이 모두 사라지며 복구할 수 없습니다.`)) return
+    try {
+      await deleteTong(id)
+    } catch (e) {
+      reportError('영구 삭제', e)
+    }
+  }
+
   // ── 다중 선택 ────────────────────────────────────────────────────────────────
   function toggleSelect(id: string) {
     setSelectedIds((s) => {
@@ -274,6 +295,7 @@ export function TongList() {
               <NavItem active={section === 'all'} onClick={() => setSection('all')} icon={<ArchiveIcon className="h-4 w-4" />} label="전체" count={tongs.length} />
               <NavItem active={section === 'mine'} onClick={() => setSection('mine')} icon={<UserIcon className="h-4 w-4" />} label="내 통" count={mineCount} />
               <NavItem active={section === 'shared'} onClick={() => setSection('shared')} icon={<ShareIcon className="h-4 w-4" />} label="공유받은 통" count={sharedCount} />
+              <NavItem active={section === 'trash'} onClick={() => setSection('trash')} icon={<TrashIcon className="h-4 w-4" />} label="휴지통" count={trashedTongs.length} />
             </nav>
 
             <div className="my-3 border-t border-gray-100" />
@@ -369,21 +391,51 @@ export function TongList() {
               ) : (
                 <span className="text-sm text-gray-400">{filtered.length}개</span>
               )}
-              <button onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))} className="text-sm font-medium text-gray-500 hover:text-gray-800">
-                {selectMode ? '선택 취소' : '선택'}
-              </button>
+              {!isTrash && (
+                <button onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))} className="text-sm font-medium text-gray-500 hover:text-gray-800">
+                  {selectMode ? '선택 취소' : '선택'}
+                </button>
+              )}
             </div>
           )}
 
           {view === 'calendar' ? (
             <TongCalendar tongs={filtered} />
           ) : filtered.length === 0 ? (
-            <EmptyState icon={<ArchiveIcon className="h-10 w-10" />} title="조건에 맞는 통이 없습니다." description="필터를 변경하거나 새 통을 만들어 보세요." />
+            <EmptyState
+              icon={isTrash ? <TrashIcon className="h-10 w-10" /> : <ArchiveIcon className="h-10 w-10" />}
+              title={isTrash ? '휴지통이 비어 있습니다.' : '조건에 맞는 통이 없습니다.'}
+              description={isTrash ? '삭제한 통이 여기에 보관됩니다.' : '필터를 변경하거나 새 통을 만들어 보세요.'}
+            />
           ) : (
             <>
               <div className="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-100 bg-white">
                 {paged.map((t) => {
                   const sum = summaryByTong.get(t.id)
+
+                  // 휴지통 행: 복구 / 영구 삭제 (상세 이동·폴더·선택·드래그 없음)
+                  if (isTrash) {
+                    return (
+                      <div key={t.id} className="flex items-start justify-between gap-3 px-4 py-3.5">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="truncate font-semibold text-gray-700">{t.title}</h3>
+                          {sum && <p className="mt-0.5 truncate text-sm text-gray-400">{sum.one_line}</p>}
+                          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-400">
+                            <span>{t.org_name}</span>
+                            <span aria-hidden>·</span>
+                            <span>{t.deleted_at ? `삭제됨 ${formatDateTime(t.deleted_at)}` : '삭제됨'}</span>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <button onClick={() => void handleRestore(t.id)} className="btn-secondary">복구</button>
+                          <button onClick={() => void handlePermanentDelete(t.title, t.id)} className="btn-ghost text-red-500 hover:bg-red-50">
+                            <TrashIcon className="h-4 w-4" />영구 삭제
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  }
+
                   const tongFolderIds = folderIdsOfTong(data, t.id, ownerFolderIdSet)
                   const checked = selectedIds.has(t.id)
 

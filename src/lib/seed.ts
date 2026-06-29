@@ -49,11 +49,11 @@ export const seedOrganizations: Organization[] = [
 // ── 사원 (그룹웨어 연동 대상 Mock) ─────────────────────────────────────────
 export const seedEmployees: Employee[] = [
   { id: 'emp-1', name: '김도윤', email: 'doyun.kim@visang.com', employee_no: 'V2019001', position: 'Cell Leader', org_id: 'cell-ax', org_name: 'AX추진 Cell', created_at: now.toISOString() },
-  { id: 'emp-2', name: '이서연', email: 'seoyeon.lee@visang.com', employee_no: 'V2020114', position: '책임', org_id: 'cell-ax', org_name: 'AX추진 Cell', created_at: now.toISOString() },
-  { id: 'emp-3', name: '박지호', email: 'jiho.park@visang.com', employee_no: 'V2021077', position: '선임', org_id: 'cell-platform', org_name: '플랫폼기획 Cell', created_at: now.toISOString() },
+  { id: 'emp-2', name: '이서연', email: 'seoyeon.lee@visang.com', employee_no: 'V2020114', position: 'CP', org_id: 'cell-ax', org_name: 'AX추진 Cell', created_at: now.toISOString() },
+  { id: 'emp-3', name: '박지호', email: 'jiho.park@visang.com', employee_no: 'V2021077', position: 'CP', org_id: 'cell-platform', org_name: '플랫폼기획 Cell', created_at: now.toISOString() },
   { id: 'emp-4', name: '최하은', email: 'haeun.choi@visang.com', employee_no: 'V2018045', position: 'Core Leader', org_id: 'core-ax', org_name: 'AX추진 Core', created_at: now.toISOString() },
-  { id: 'emp-5', name: '정민준', email: 'minjun.jung@visang.com', employee_no: 'V2022150', position: '사원', org_id: 'cell-kids', org_name: '유아콘텐츠 Cell', created_at: now.toISOString() },
-  { id: 'emp-6', name: '한소율', email: 'soyul.han@visang.com', employee_no: 'V2017030', position: '책임', org_id: 'core-textbook', org_name: '교재개발 Core', created_at: now.toISOString() },
+  { id: 'emp-5', name: '정민준', email: 'minjun.jung@visang.com', employee_no: 'V2022150', position: 'CP', org_id: 'cell-kids', org_name: '유아콘텐츠 Cell', created_at: now.toISOString() },
+  { id: 'emp-6', name: '한소율', email: 'soyul.han@visang.com', employee_no: 'V2017030', position: 'CP', org_id: 'core-textbook', org_name: '교재개발 Core', created_at: now.toISOString() },
 ]
 
 // ── 통 유형 (Core 단위 커스텀) ─────────────────────────────────────────────
@@ -85,6 +85,7 @@ export const seedTongs: Tong[] = [
     references: '2026 상반기 회고 문서, 경쟁사 벤치마크 자료',
     status: '예정',
     created_by: 'emp-4',
+    deleted_at: null,
     created_at: isoOffsetDays(-3),
     updated_at: isoOffsetDays(-3),
   },
@@ -100,6 +101,7 @@ export const seedTongs: Tong[] = [
     references: '주간 성과 대시보드',
     status: '진행 완료',
     created_by: 'emp-3',
+    deleted_at: null,
     created_at: isoOffsetDays(-9),
     updated_at: isoOffsetDays(-2),
   },
@@ -115,6 +117,7 @@ export const seedTongs: Tong[] = [
     references: '프로젝트 제안서 v0.9',
     status: '진행 완료',
     created_by: 'emp-4',
+    deleted_at: null,
     created_at: isoOffsetDays(-12),
     updated_at: isoOffsetDays(-5),
   },
@@ -130,6 +133,7 @@ export const seedTongs: Tong[] = [
     references: 'VOC 수집 리포트 5월',
     status: '예정',
     created_by: 'emp-5',
+    deleted_at: null,
     created_at: isoOffsetDays(-1),
     updated_at: isoOffsetDays(-1),
   },
