@@ -9,10 +9,12 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
 import { repo, type FullDataset } from '@/lib/db'
+import { removeRecordings } from '@/lib/storage'
 import type {
   Attachment,
   Employee,
@@ -39,8 +41,10 @@ interface DataContextValue extends FullDataset {
   trashTong: (id: string) => Promise<void>
   /** 휴지통에서 복구 */
   restoreTong: (id: string) => Promise<void>
-  /** 영구 삭제 (관련 기록 포함) */
+  /** 영구 삭제 (관련 기록·음원 포함) */
   deleteTong: (id: string) => Promise<void>
+  /** 휴지통 전체 영구 삭제 */
+  emptyTrash: () => Promise<void>
 
   addInput: (input: TongInput) => Promise<void>
 
@@ -83,6 +87,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<FullDataset>(empty)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // 최신 데이터 참조 (콜백에서 첨부 경로 조회용)
+  const dataRef = useRef(data)
+  dataRef.current = data
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -129,6 +136,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const deleteTong = useCallback(async (id: string) => {
+    // 영구삭제 전 음원 Storage 정리 (orphan 파일 방지)
+    const paths = dataRef.current.attachments.filter((a) => a.tong_id === id && a.storage_path).map((a) => a.storage_path)
+    await removeRecordings(paths)
     await repo.deleteTong(id)
     setData((d) => ({
       ...d,
@@ -140,6 +150,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
       folderItems: d.folderItems.filter((x) => x.tong_id !== id),
     }))
   }, [])
+
+  const emptyTrash = useCallback(async () => {
+    const trashedIds = dataRef.current.tongs.filter((t) => t.deleted_at).map((t) => t.id)
+    for (const id of trashedIds) {
+      await deleteTong(id)
+    }
+  }, [deleteTong])
 
   const addInput = useCallback(async (input: TongInput) => {
     await repo.addInput(input)
@@ -241,6 +258,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       trashTong,
       restoreTong,
       deleteTong,
+      emptyTrash,
       addInput,
       saveSummary,
       upsertTongType,
@@ -254,7 +272,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addTongToFolder,
       removeTongFromFolder,
     }),
-    [data, activeTongs, trashedTongs, loading, error, refresh, upsertTong, trashTong, restoreTong, deleteTong, addInput, saveSummary, upsertTongType, deleteTongType, addAttachment, setEmployees, addShare, removeShare, upsertFolder, deleteFolder, addTongToFolder, removeTongFromFolder],
+    [data, activeTongs, trashedTongs, loading, error, refresh, upsertTong, trashTong, restoreTong, deleteTong, emptyTrash, addInput, saveSummary, upsertTongType, deleteTongType, addAttachment, setEmployees, addShare, removeShare, upsertFolder, deleteFolder, addTongToFolder, removeTongFromFolder],
   )
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>

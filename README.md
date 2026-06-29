@@ -29,6 +29,7 @@ npm run dev      # http://localhost:5173
    - **이미 구버전 스키마로 만든 프로젝트**는 아래 마이그레이션을 추가 실행:
      - [`migration_folders.sql`](supabase/migration_folders.sql) — 폴더·공유 (`folders`/`folder_items`/`tong_shares` + `tongs.created_by`)
      - [`migration_trash.sql`](supabase/migration_trash.sql) — 휴지통 (`tongs.deleted_at`)
+     - [`cron_purge_trash.sql`](supabase/cron_purge_trash.sql) — 휴지통 90일 자동 비우기(pg_cron)
      - [`migration_audio_retention.sql`](supabase/migration_audio_retention.sql) — 음원 보관 (`attachments.expires_at` + `recordings` 버킷)
      - [`cron_purge_recordings.sql`](supabase/cron_purge_recordings.sql) — 음원 90일 자동 삭제(pg_cron)
 3. `.env` 파일 생성 (`.env.example` 참고)
@@ -64,7 +65,9 @@ VITE_SUPABASE_ANON_KEY=eyJhbGci...
 통 기록함은 좌측 폴더 패널로 통을 분류합니다. **스마트 폴더(자동) + 개인 폴더(수동)** 의 1단계 평면 구조이며, 한 통을 **여러 폴더에 동시에** 담을 수 있는 **다중 분류(태그형)** 입니다.
 
 - **스마트 폴더** (고정·자동 분류)
-  - `전체`: 모든 통(현재 인증 전이라 전 조직) / `내 통`: 내가 **진행(`Tong.created_by`)했거나 참석자로 포함된** 통 / `공유받은 통`: 나에게 공유된 통(내가 관여한 건 제외) / `휴지통`: 삭제(소프트, `Tong.deleted_at`)한 통 → 복구·영구삭제
+  - `전체`: 모든 통(현재 인증 전이라 전 조직) / `내 통`: 내가 **진행(`Tong.created_by`)했거나 참석자로 포함된** 통 / `공유받은 통`: 나에게 공유된 통(내가 관여한 건 제외)
+  - `휴지통`: 삭제(소프트, `Tong.deleted_at`)한 통 → **복구 / 영구삭제 / 휴지통 비우기**, 항목 **읽기전용 보기**, **90일 후 자동 영구삭제**(pg_cron, 음원도 함께 정리)
+  - 다중 선택(`선택` 모드)에서 **일괄 폴더 추가 / 일괄 휴지통 이동** 가능
   - 참석 판별은 참석자 저장 라벨 `이름 (조직명)` 으로 매칭 ([`src/lib/selectors.ts`](src/lib/selectors.ts))
 - **개인 폴더** (사용자 생성, 다중 분류)
   - 만들기 / 이름 변경 / 삭제

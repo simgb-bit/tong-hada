@@ -16,9 +16,11 @@ import {
   TrashIcon,
   MoreIcon,
 } from '@/components/icons'
-import { cn, formatDateTime, tongStatusColor, tongTypeBadgeClass } from '@/lib/utils'
+import { cn, formatDateTime, formatDate, tongStatusColor, tongTypeBadgeClass } from '@/lib/utils'
 import { TongCalendar } from '@/components/TongCalendar'
+import { TrashPreviewModal } from '@/pages/tong/TrashPreviewModal'
 import { uid } from '@/lib/db'
+import { trashPurgeAt } from '@/lib/storage'
 import {
   myTongs,
   sharedWithMeTongs,
@@ -26,7 +28,7 @@ import {
   tongsInFolder,
   folderIdsOfTong,
 } from '@/lib/selectors'
-import type { Folder, TongStatus } from '@/types'
+import type { Folder, Tong, TongStatus } from '@/types'
 
 type ViewMode = 'list' | 'calendar'
 /** 좌측 패널 선택: 스마트 폴더 키 또는 개인 폴더 id */
@@ -45,7 +47,7 @@ const PAGE_SIZE = 10
 
 export function TongList() {
   const data = useData()
-  const { tongs, trashedTongs, summaries, tongTypes, upsertFolder, deleteFolder, addTongToFolder, removeTongFromFolder, restoreTong, deleteTong } = data
+  const { tongs, trashedTongs, summaries, tongTypes, upsertFolder, deleteFolder, addTongToFolder, removeTongFromFolder, trashTong, restoreTong, deleteTong, emptyTrash } = data
   const { currentUser } = useCurrentUser()
   const userId = currentUser?.id ?? ''
 
@@ -67,6 +69,8 @@ export function TongList() {
   // 드래그앤드롭
   const [dragId, setDragId] = useState<string | null>(null)
   const [dropFolderId, setDropFolderId] = useState<string | null>(null)
+  // 휴지통 읽기전용 미리보기
+  const [previewTong, setPreviewTong] = useState<Tong | null>(null)
 
   const folders = useMemo(() => myFolders(data, userId), [data, userId])
   const ownerFolderIds = useMemo(() => folders.map((f) => f.id), [folders])
@@ -207,6 +211,26 @@ export function TongList() {
       await deleteTong(id)
     } catch (e) {
       reportError('영구 삭제', e)
+    }
+  }
+
+  async function handleEmptyTrash() {
+    if (trashedTongs.length === 0) return
+    if (!window.confirm(`휴지통의 통 ${trashedTongs.length}개를 모두 영구 삭제할까요? 복구할 수 없습니다.`)) return
+    try {
+      await emptyTrash()
+    } catch (e) {
+      reportError('휴지통 비우기', e)
+    }
+  }
+
+  async function bulkTrash() {
+    const ids = [...selectedIds]
+    exitSelectMode()
+    try {
+      await Promise.all(ids.map((id) => trashTong(id)))
+    } catch (e) {
+      reportError('휴지통으로 이동', e)
     }
   }
 
@@ -387,6 +411,18 @@ export function TongList() {
                       </>
                     )}
                   </div>
+                  <button onClick={() => void bulkTrash()} className="btn-ghost text-red-500 hover:bg-red-50">
+                    <TrashIcon className="h-4 w-4" />휴지통으로 이동
+                  </button>
+                </div>
+              ) : isTrash ? (
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-gray-400">{filtered.length}개</span>
+                  {trashedTongs.length > 0 && (
+                    <button onClick={() => void handleEmptyTrash()} className="btn-ghost text-red-500 hover:bg-red-50">
+                      <TrashIcon className="h-4 w-4" />휴지통 비우기
+                    </button>
+                  )}
                 </div>
               ) : (
                 <span className="text-sm text-gray-400">{filtered.length}개</span>
@@ -417,15 +453,15 @@ export function TongList() {
                   if (isTrash) {
                     return (
                       <div key={t.id} className="flex items-start justify-between gap-3 px-4 py-3.5">
-                        <div className="min-w-0 flex-1">
-                          <h3 className="truncate font-semibold text-gray-700">{t.title}</h3>
+                        <button onClick={() => setPreviewTong(t)} className="min-w-0 flex-1 text-left" title="내용 보기 (읽기 전용)">
+                          <h3 className="truncate font-semibold text-gray-700 hover:text-brand-700">{t.title}</h3>
                           {sum && <p className="mt-0.5 truncate text-sm text-gray-400">{sum.one_line}</p>}
                           <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-400">
                             <span>{t.org_name}</span>
-                            <span aria-hidden>·</span>
-                            <span>{t.deleted_at ? `삭제됨 ${formatDateTime(t.deleted_at)}` : '삭제됨'}</span>
+                            {t.deleted_at && (<><span aria-hidden>·</span><span>삭제됨 {formatDateTime(t.deleted_at)}</span></>)}
+                            {t.deleted_at && (<><span aria-hidden>·</span><span>{formatDate(trashPurgeAt(t.deleted_at))} 자동 삭제</span></>)}
                           </div>
-                        </div>
+                        </button>
                         <div className="flex shrink-0 items-center gap-2">
                           <button onClick={() => void handleRestore(t.id)} className="btn-secondary">복구</button>
                           <button onClick={() => void handlePermanentDelete(t.title, t.id)} className="btn-ghost text-red-500 hover:bg-red-50">
@@ -603,6 +639,9 @@ export function TongList() {
           placeholder="예: 1분기 회의"
         />
       </Modal>
+
+      {/* 휴지통 항목 읽기전용 미리보기 */}
+      <TrashPreviewModal tong={previewTong} open={previewTong !== null} onClose={() => setPreviewTong(null)} />
     </div>
   )
 }

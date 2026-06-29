@@ -14,11 +14,32 @@ export const RECORDING_RETENTION_DAYS = 90
 /** 음원 버킷 이름 */
 export const RECORDINGS_BUCKET = 'recordings'
 
+/** 휴지통 보존기간 (일). 휴지통에 들어간 지 이 기간 경과 시 자동 영구삭제 대상. */
+export const TRASH_RETENTION_DAYS = 90
+
 /** 업로드 시각 기준 만료 시각(ISO) 계산 */
 export function recordingExpiresAt(uploadedAtIso: string): string {
   const d = new Date(uploadedAtIso)
   d.setDate(d.getDate() + RECORDING_RETENTION_DAYS)
   return d.toISOString()
+}
+
+/** 휴지통 자동 삭제 예정 시각(ISO) = 삭제일 + TRASH_RETENTION_DAYS */
+export function trashPurgeAt(deletedAtIso: string): string {
+  const d = new Date(deletedAtIso)
+  d.setDate(d.getDate() + TRASH_RETENTION_DAYS)
+  return d.toISOString()
+}
+
+/** 음원 파일들을 Storage 에서 삭제 (영구삭제 시 호출). 실패해도 무시. */
+export async function removeRecordings(paths: string[]): Promise<void> {
+  const valid = paths.filter(Boolean)
+  if (!isSupabaseConfigured || !supabase || valid.length === 0) return
+  try {
+    await supabase.storage.from(RECORDINGS_BUCKET).remove(valid)
+  } catch (e) {
+    console.warn('[storage] 음원 삭제 실패:', e)
+  }
 }
 
 /** 파일명에서 확장자 추출 (없으면 webm) */
