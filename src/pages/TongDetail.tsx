@@ -20,7 +20,7 @@ type Tab = (typeof TABS)[number]
 export function TongDetail() {
   const { id } = useParams<{ id: string }>()
   const data = useData()
-  const { tongs, tongTypes, shares, deleteTong, addTongToFolder, removeTongFromFolder } = data
+  const { tongs, tongTypes, shares, trashTong, addTongToFolder, removeTongFromFolder } = data
   const { currentUser } = useCurrentUser()
   const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('기본 정보')
@@ -55,7 +55,7 @@ export function TongDetail() {
 
   async function handleDelete() {
     if (!tong) return
-    await deleteTong(tong.id)
+    await trashTong(tong.id)
     navigate('/tongs')
   }
 
@@ -112,9 +112,9 @@ export function TongDetail() {
 
       <ConfirmModal
         open={deleteOpen}
-        title="통을 삭제할까요?"
-        message={`'${tong.title}' 통과 관련 기록이 모두 삭제됩니다. 삭제 후 복구할 수 없습니다.`}
-        confirmLabel="삭제"
+        title="통을 휴지통으로 옮길까요?"
+        message={`'${tong.title}' 통이 휴지통으로 이동합니다. 통 기록함의 휴지통에서 복구하거나 영구 삭제할 수 있습니다.`}
+        confirmLabel="휴지통으로 이동"
         onConfirm={() => { setDeleteOpen(false); void handleDelete() }}
         onCancel={() => setDeleteOpen(false)}
       />

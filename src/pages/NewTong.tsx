@@ -73,6 +73,7 @@ export function NewTong() {
       references: references.trim(),
       status,
       created_by: currentUser?.id ?? '',
+      deleted_at: null,
       created_at: nowIso,
       updated_at: nowIso,
     }

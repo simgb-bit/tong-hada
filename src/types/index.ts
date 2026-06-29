@@ -71,6 +71,8 @@ export interface Tong {
   status: TongStatus
   /** 통을 진행(생성)한 사원 id. "내 통" 판별 근거 */
   created_by: string
+  /** 휴지통(소프트 삭제) 시각. null 이면 정상 통, 값이 있으면 휴지통에 있음 */
+  deleted_at: string | null
   created_at: string
   updated_at: string
 }
@@ -157,8 +159,10 @@ export interface Attachment {
   file_size: number
   /** MIME 타입 */
   mime_type: string
-  /** 스토리지 경로 또는 URL (Mock 단계에서는 빈 값 허용) */
+  /** 스토리지 경로 또는 URL (업로드 안 됨/만료 시 빈 값) */
   storage_path: string
   /** 업로드 일시 */
   uploaded_at: string
+  /** 음원 자동 삭제 만료 시각 (업로드 + 90일). null 이면 만료 없음 */
+  expires_at: string | null
 }

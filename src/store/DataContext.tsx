@@ -9,10 +9,12 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
 import { repo, type FullDataset } from '@/lib/db'
+import { removeRecordings } from '@/lib/storage'
 import type {
   Attachment,
   Employee,
@@ -31,8 +33,18 @@ interface DataContextValue extends FullDataset {
   backendMode: 'supabase' | 'memory'
   refresh: () => Promise<void>
 
+  /** 휴지통에 있는 통 (deleted_at != null) — tongs 에는 포함되지 않음 */
+  trashedTongs: Tong[]
+
   upsertTong: (tong: Tong) => Promise<void>
+  /** 휴지통으로 이동 (소프트 삭제) */
+  trashTong: (id: string) => Promise<void>
+  /** 휴지통에서 복구 */
+  restoreTong: (id: string) => Promise<void>
+  /** 영구 삭제 (관련 기록·음원 포함) */
   deleteTong: (id: string) => Promise<void>
+  /** 휴지통 전체 영구 삭제 */
+  emptyTrash: () => Promise<void>
 
   addInput: (input: TongInput) => Promise<void>
 
@@ -75,6 +87,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<FullDataset>(empty)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // 최신 데이터 참조 (콜백에서 첨부 경로 조회용)
+  const dataRef = useRef(data)
+  dataRef.current = data
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -103,7 +118,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
+  const trashTong = useCallback(async (id: string) => {
+    const deletedAt = new Date().toISOString()
+    await repo.setTongDeleted(id, deletedAt)
+    setData((d) => ({
+      ...d,
+      tongs: d.tongs.map((t) => (t.id === id ? { ...t, deleted_at: deletedAt } : t)),
+    }))
+  }, [])
+
+  const restoreTong = useCallback(async (id: string) => {
+    await repo.setTongDeleted(id, null)
+    setData((d) => ({
+      ...d,
+      tongs: d.tongs.map((t) => (t.id === id ? { ...t, deleted_at: null } : t)),
+    }))
+  }, [])
+
   const deleteTong = useCallback(async (id: string) => {
+    // 영구삭제 전 음원 Storage 정리 (orphan 파일 방지)
+    const paths = dataRef.current.attachments.filter((a) => a.tong_id === id && a.storage_path).map((a) => a.storage_path)
+    await removeRecordings(paths)
     await repo.deleteTong(id)
     setData((d) => ({
       ...d,
@@ -111,8 +146,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
       inputs: d.inputs.filter((x) => x.tong_id !== id),
       summaries: d.summaries.filter((x) => x.tong_id !== id),
       attachments: d.attachments.filter((x) => x.tong_id !== id),
+      shares: d.shares.filter((x) => x.tong_id !== id),
+      folderItems: d.folderItems.filter((x) => x.tong_id !== id),
     }))
   }, [])
+
+  const emptyTrash = useCallback(async () => {
+    const trashedIds = dataRef.current.tongs.filter((t) => t.deleted_at).map((t) => t.id)
+    for (const id of trashedIds) {
+      await deleteTong(id)
+    }
+  }, [deleteTong])
 
   const addInput = useCallback(async (input: TongInput) => {
     await repo.addInput(input)
@@ -197,15 +241,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setData((d) => ({ ...d, folderItems: d.folderItems.filter((x) => !(x.folder_id === folderId && x.tong_id === tongId)) }))
   }, [])
 
+  // 휴지통 통은 일반 tongs 에서 제외하고 trashedTongs 로 분리해 노출한다.
+  const activeTongs = useMemo(() => data.tongs.filter((t) => !t.deleted_at), [data.tongs])
+  const trashedTongs = useMemo(() => data.tongs.filter((t) => !!t.deleted_at), [data.tongs])
+
   const value = useMemo<DataContextValue>(
     () => ({
       ...data,
+      tongs: activeTongs,
+      trashedTongs,
       loading,
       error,
       backendMode: repo.mode,
       refresh,
       upsertTong,
+      trashTong,
+      restoreTong,
       deleteTong,
+      emptyTrash,
       addInput,
       saveSummary,
       upsertTongType,
@@ -219,7 +272,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addTongToFolder,
       removeTongFromFolder,
     }),
-    [data, loading, error, refresh, upsertTong, deleteTong, addInput, saveSummary, upsertTongType, deleteTongType, addAttachment, setEmployees, addShare, removeShare, upsertFolder, deleteFolder, addTongToFolder, removeTongFromFolder],
+    [data, activeTongs, trashedTongs, loading, error, refresh, upsertTong, trashTong, restoreTong, deleteTong, emptyTrash, addInput, saveSummary, upsertTongType, deleteTongType, addAttachment, setEmployees, addShare, removeShare, upsertFolder, deleteFolder, addTongToFolder, removeTongFromFolder],
   )
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>

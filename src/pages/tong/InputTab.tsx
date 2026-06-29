@@ -4,10 +4,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useData } from '@/store/DataContext'
 import { Card, Badge } from '@/components/ui'
 import { TeamsIcon, TextIcon, MemoIcon, MicIcon, FileIcon, StopIcon } from '@/components/icons'
-import { cn, formatDateTime, formatFileSize } from '@/lib/utils'
+import { cn, formatDateTime, formatDate, formatFileSize } from '@/lib/utils'
 import { uid } from '@/lib/db'
 import { fetchTeamsTranscript } from '@/lib/teams'
 import { transcribeAudioFile, isSupportedAudio } from '@/lib/stt'
+import { uploadRecording, recordingExpiresAt } from '@/lib/storage'
 import type { Tong, TongInput, TongInputType, Attachment } from '@/types'
 
 const METHODS: { key: TongInputType; label: string; icon: React.ReactNode }[] = [
@@ -101,9 +102,14 @@ export function InputTab({ tong }: { tong: Tong }) {
             <ul className="space-y-2">
               {tongAttachments.map((a) => (
                 <li key={a.id} className="flex items-center gap-2 rounded-lg border border-gray-100 p-2 text-sm">
-                  <FileIcon className="h-4 w-4 text-gray-400" />
-                  <span className="min-w-0 flex-1 truncate text-gray-700">{a.file_name}</span>
-                  <span className="text-xs text-gray-400">{formatFileSize(a.file_size)}</span>
+                  <FileIcon className="h-4 w-4 shrink-0 text-gray-400" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-gray-700">{a.file_name}</p>
+                    {a.storage_path
+                      ? a.expires_at && <p className="text-xs text-gray-400">{formatDate(a.expires_at)} 자동 삭제 예정</p>
+                      : <p className="text-xs text-gray-400">{a.expires_at ? '음원 만료(삭제됨)' : '음원 미보관'}</p>}
+                  </div>
+                  <span className="shrink-0 text-xs text-gray-400">{formatFileSize(a.file_size)}</span>
                 </li>
               ))}
             </ul>
@@ -186,16 +192,21 @@ function TextInput({ onSave, placeholder, label }: { onSave: (c: string) => Prom
 function AudioInput({ tong, onTranscribed, onAttach }: { tong: Tong; onTranscribed: (c: string) => Promise<void>; onAttach: (a: Attachment) => Promise<void> }) {
   const [sub, setSub] = useState<'record' | 'upload'>('record')
 
-  // 녹음/업로드 공통 처리: 첨부 메타 저장 → STT 변환(Mock) → 입력 저장
+  // 녹음/업로드 공통 처리: 음원 Storage 업로드 → 첨부 메타 저장 → STT 변환(Mock) → 입력 저장
   async function processFile(file: File): Promise<string> {
+    const id = uid('att')
+    const uploadedAt = new Date().toISOString()
+    // 음원 원본을 Storage 에 보관 (Supabase 미설정 시 빈 경로). 90일 후 자동 삭제 대상.
+    const storagePath = await uploadRecording(file, tong.id, id)
     const att: Attachment = {
-      id: uid('att'),
+      id,
       tong_id: tong.id,
       file_name: file.name,
       file_size: file.size,
       mime_type: file.type || 'audio/webm',
-      storage_path: '', // TODO: Supabase Storage 업로드 경로
-      uploaded_at: new Date().toISOString(),
+      storage_path: storagePath,
+      uploaded_at: uploadedAt,
+      expires_at: storagePath ? recordingExpiresAt(uploadedAt) : null,
     }
     await onAttach(att)
     const text = await transcribeAudioFile(file)

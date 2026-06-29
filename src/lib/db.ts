@@ -42,6 +42,9 @@ export interface Repository {
   loadAll(): Promise<FullDataset>
 
   upsertTong(tong: Tong): Promise<void>
+  /** 휴지통 이동/복구: deletedAt 값(ISO) 설정, null 이면 복구 */
+  setTongDeleted(id: string, deletedAt: string | null): Promise<void>
+  /** 영구 삭제 (관련 기록 포함) */
   deleteTong(id: string): Promise<void>
 
   addInput(input: TongInput): Promise<void>
@@ -85,6 +88,11 @@ class InMemoryRepository implements Repository {
     const i = this.data.tongs.findIndex((t) => t.id === tong.id)
     if (i >= 0) this.data.tongs[i] = tong
     else this.data.tongs.push(tong)
+  }
+
+  async setTongDeleted(id: string, deletedAt: string | null): Promise<void> {
+    const t = this.data.tongs.find((x) => x.id === id)
+    if (t) t.deleted_at = deletedAt
   }
 
   async deleteTong(id: string): Promise<void> {
@@ -232,6 +240,11 @@ class SupabaseRepository implements Repository {
 
   async upsertTong(tong: Tong): Promise<void> {
     const { error } = await this.client.from('tongs').upsert(tong)
+    if (error) throw error
+  }
+
+  async setTongDeleted(id: string, deletedAt: string | null): Promise<void> {
+    const { error } = await this.client.from('tongs').update({ deleted_at: deletedAt }).eq('id', id)
     if (error) throw error
   }
 
