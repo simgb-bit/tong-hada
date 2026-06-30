@@ -12,7 +12,7 @@ declare
   tables text[] := array[
     'organizations', 'employees', 'tong_types', 'tongs', 'tong_inputs',
     'tong_summaries', 'action_items', 'attachments',
-    'tong_shares', 'folders', 'folder_items'
+    'tong_shares', 'folders', 'folder_items', 'tong_comments'
   ];
 begin
   foreach t in array tables loop

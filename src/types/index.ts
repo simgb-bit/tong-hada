@@ -126,31 +126,44 @@ export interface TongInput {
   created_by?: string | null
   /** 작성자 이름 (조회 편의용 비정규화) */
   created_by_name?: string | null
+  /** 소프트 삭제 시각(ISO). null/없음이면 활성. 삭제돼도 복구 가능하며 AI 요약에서 제외됨 */
+  deleted_at?: string | null
   created_at: string
 }
 
-/** AI 요약 결과 구조 */
+/** AI 요약 결과 구조 (한 줄 요약 / 전체 내용 / 키워드) */
 export interface TongSummary {
   id: string
   tong_id: string
   /** 1. 한 줄 요약 */
   one_line: string
-  /** 2. 주요 쟁점 */
-  key_issues: string[]
-  /** 3. 결론 */
-  conclusions: string[]
-  /** 4. 보류 사항 */
-  pending_items: string[]
-  /** 5. 확인 필요 사항 */
-  to_confirm: string[]
-  /** 6. 후속 과제 (요약 단계의 초안) */
-  action_item_drafts: string[]
-  /** 7. 반복 이슈 키워드 */
+  /** 2. 전체 내용 — 입력 내용을 구조화·정리한 본문 */
+  full_summary: string
+  /** 3. 키워드 — 회의에서 뽑은 메인 키워드 (DB 컬럼명은 recurring_keywords 유지) */
   recurring_keywords: string[]
   /** 생성 출처: mock | manual(사용자 수정) */
   source: 'mock' | 'manual'
   created_at: string
   updated_at: string
+
+  // ── 구버전 호환(미사용, 분석 페이지 폴백용) ──
+  key_issues?: string[]
+  conclusions?: string[]
+  pending_items?: string[]
+  to_confirm?: string[]
+  action_item_drafts?: string[]
+}
+
+/** 통 댓글 (참여자 의견) */
+export interface TongComment {
+  id: string
+  tong_id: string
+  /** 작성자 사원 id */
+  author_id: string | null
+  /** 작성자 이름 (조회 편의용) */
+  author_name: string | null
+  content: string
+  created_at: string
 }
 
 /** 첨부 파일 메타데이터 (음성 파일 등) */

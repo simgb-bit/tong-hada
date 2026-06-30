@@ -92,5 +92,5 @@ export function recentKeyIssues(data: FullDataset, days = 30): string[] {
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1000
   return data.summaries
     .filter((s) => new Date(s.created_at).getTime() >= cutoff)
-    .flatMap((s) => s.key_issues)
+    .flatMap((s) => s.key_issues ?? [])
 }

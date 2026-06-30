@@ -15,8 +15,8 @@ export function Analytics() {
   const keywords = useMemo(() => recurringKeywords(data), [data])
   const recentIssues = useMemo(() => recentKeyIssues(data, 30), [data])
 
-  const totalConclusions = summaries.reduce((sum, s) => sum + s.conclusions.length, 0)
-  const totalPending = summaries.reduce((sum, s) => sum + s.pending_items.length, 0)
+  const totalConclusions = summaries.reduce((sum, s) => sum + (s.conclusions?.length ?? 0), 0)
+  const totalPending = summaries.reduce((sum, s) => sum + (s.pending_items?.length ?? 0), 0)
 
   return (
     <div>

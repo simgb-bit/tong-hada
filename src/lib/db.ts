@@ -16,6 +16,7 @@ import type {
   FolderItem,
   Organization,
   Tong,
+  TongComment,
   TongInput,
   TongShare,
   TongSummary,
@@ -33,6 +34,7 @@ export interface FullDataset {
   shares: TongShare[]
   folders: Folder[]
   folderItems: FolderItem[]
+  comments: TongComment[]
 }
 
 export interface Repository {
@@ -48,6 +50,8 @@ export interface Repository {
   deleteTong(id: string): Promise<void>
 
   addInput(input: TongInput): Promise<void>
+  /** 입력 소프트 삭제/복구: deletedAt 값(ISO) 설정, null 이면 복구 */
+  setInputDeleted(id: string, deletedAt: string | null): Promise<void>
 
   upsertSummary(summary: TongSummary): Promise<void>
 
@@ -56,6 +60,10 @@ export interface Repository {
 
   addAttachment(att: Attachment): Promise<void>
   removeAttachment(id: string): Promise<void>
+
+  // 댓글
+  addComment(comment: TongComment): Promise<void>
+  removeComment(id: string): Promise<void>
 
   replaceEmployees(employees: Employee[]): Promise<void>
 
@@ -109,6 +117,11 @@ class InMemoryRepository implements Repository {
     this.data.inputs.push(input)
   }
 
+  async setInputDeleted(id: string, deletedAt: string | null): Promise<void> {
+    const x = this.data.inputs.find((i) => i.id === id)
+    if (x) x.deleted_at = deletedAt
+  }
+
   async upsertSummary(summary: TongSummary): Promise<void> {
     const i = this.data.summaries.findIndex((s) => s.tong_id === summary.tong_id)
     if (i >= 0) this.data.summaries[i] = summary
@@ -131,6 +144,14 @@ class InMemoryRepository implements Repository {
 
   async removeAttachment(id: string): Promise<void> {
     this.data.attachments = this.data.attachments.filter((a) => a.id !== id)
+  }
+
+  async addComment(comment: TongComment): Promise<void> {
+    this.data.comments.push(comment)
+  }
+
+  async removeComment(id: string): Promise<void> {
+    this.data.comments = this.data.comments.filter((c) => c.id !== id)
   }
 
   async replaceEmployees(employees: Employee[]): Promise<void> {
@@ -180,7 +201,7 @@ class SupabaseRepository implements Repository {
 
   async loadAll(): Promise<FullDataset> {
     const c = this.client
-    const [orgs, emps, tongs, inputs, summaries, types, atts, shares, folders, folderItems] = await Promise.all([
+    const [orgs, emps, tongs, inputs, summaries, types, atts, shares, folders, folderItems, comments] = await Promise.all([
       c.from('organizations').select('*'),
       c.from('employees').select('*'),
       c.from('tongs').select('*'),
@@ -191,6 +212,7 @@ class SupabaseRepository implements Repository {
       c.from('tong_shares').select('*'),
       c.from('folders').select('*'),
       c.from('folder_items').select('*'),
+      c.from('tong_comments').select('*'),
     ])
 
     const dataset: FullDataset = {
@@ -204,6 +226,7 @@ class SupabaseRepository implements Repository {
       shares: (shares.data ?? []) as TongShare[],
       folders: (folders.data ?? []) as Folder[],
       folderItems: (folderItems.data ?? []) as FolderItem[],
+      comments: (comments.data ?? []) as TongComment[],
     }
 
     // 최초 실행 시(조직 데이터가 비어 있으면) 시드 주입
@@ -236,6 +259,7 @@ class SupabaseRepository implements Repository {
       fail('folders', folderRes.error)
       // folder_items 는 folders 가 먼저 들어간 뒤에 삽입
       fail('folder_items', (await c.from('folder_items').insert(seed.folderItems)).error)
+      if (seed.comments.length > 0) fail('tong_comments', (await c.from('tong_comments').insert(seed.comments)).error)
 
       return seed
     }
@@ -263,6 +287,11 @@ class SupabaseRepository implements Repository {
     if (error) throw error
   }
 
+  async setInputDeleted(id: string, deletedAt: string | null): Promise<void> {
+    const { error } = await this.client.from('tong_inputs').update({ deleted_at: deletedAt }).eq('id', id)
+    if (error) throw error
+  }
+
   async upsertSummary(summary: TongSummary): Promise<void> {
     const { error } = await this.client.from('tong_summaries').upsert(summary, { onConflict: 'tong_id' })
     if (error) throw error
@@ -285,6 +314,16 @@ class SupabaseRepository implements Repository {
 
   async removeAttachment(id: string): Promise<void> {
     const { error } = await this.client.from('attachments').delete().eq('id', id)
+    if (error) throw error
+  }
+
+  async addComment(comment: TongComment): Promise<void> {
+    const { error } = await this.client.from('tong_comments').insert(comment)
+    if (error) throw error
+  }
+
+  async removeComment(id: string): Promise<void> {
+    const { error } = await this.client.from('tong_comments').delete().eq('id', id)
     if (error) throw error
   }
 

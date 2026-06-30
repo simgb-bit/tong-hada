@@ -32,7 +32,8 @@ npm run dev      # http://localhost:5173
      - [`cron_purge_trash.sql`](supabase/cron_purge_trash.sql) — 휴지통 90일 자동 비우기(pg_cron)
      - [`migration_audio_retention.sql`](supabase/migration_audio_retention.sql) — 음원 보관 (`attachments.expires_at` + `recordings` 버킷)
      - [`cron_purge_recordings.sql`](supabase/cron_purge_recordings.sql) — 음원 90일 자동 삭제(pg_cron)
-     - [`migration_input_author.sql`](supabase/migration_input_author.sql) — 입력 기록 작성자 (`tong_inputs.created_by` / `created_by_name`)
+     - [`migration_input_author.sql`](supabase/migration_input_author.sql) — 입력 기록 작성자·소프트삭제 (`tong_inputs.created_by` / `created_by_name` / `deleted_at`)
+     - [`migration_summary_comments.sql`](supabase/migration_summary_comments.sql) — AI 요약 전체 내용(`tong_summaries.full_summary`) + 댓글(`tong_comments`)
 3. `.env` 파일 생성 (`.env.example` 참고)
 
 ```env
@@ -49,7 +50,7 @@ VITE_SUPABASE_ANON_KEY=eyJhbGci...
 | 홈 | 오늘의 통, 최근 통 기록, 반복 이슈 키워드 대시보드 (좌측 상단 로고 클릭 시 홈 이동) |
 | 새 통 만들기 | 통명·유형·일시·참석자·안건·관련 자료·상태 입력 (주관 조직은 사용자 소속으로 자동 설정). 참석자는 **검색해서 추가**, 추가된 참석자에게 **자동으로 입력 권한(편집) 공유** |
 | 통 기록함 | 검색/필터 + **목록 / 캘린더** 뷰 토글 + **폴더**(스마트 폴더 + 개인 폴더) + **휴지통** + **페이지네이션**(10개/페이지) |
-| 통 상세 | 3개 탭 — 기본 정보 / 입력 / AI 요약 + **공유**(사원에게 보기/편집 권한 부여) + 삭제 시 **휴지통 이동**. 입력 기록은 **클릭 시 전체 내용·작성자 상세 보기**. 보기 권한자는 **읽기 전용** |
+| 통 상세 | 3개 탭 — 기본 정보 / 입력 / AI 요약 + **공유**(사원에게 보기/편집 권한 부여) + 삭제 시 **휴지통 이동**. 입력 기록은 **클릭 시 전체 내용·작성자 상세 보기**, **소프트 삭제(복구 가능)** — 삭제 시 AI 요약에서 제외. 보기 권한자는 **읽기 전용** |
 | 분석 | 유형별/조직별 통 개수, 반복 키워드, 최근 쟁점 등 |
 | 설정 | **Core 리더 이상 전용** — 통 유형 관리 |
 
@@ -98,8 +99,9 @@ VITE_SUPABASE_ANON_KEY=eyJhbGci...
 ### 통 상세 · 입력 탭 (입력 방식)
 
 - **Teams 녹취**: `Teams 녹취 가져오기` 버튼 → Mock 녹취 생성
-- **텍스트 / 메모 입력**: 직접 입력
-- **음성 녹음·파일**: 노트북 마이크로 **직접 녹음**하거나 mp3/wav 업로드
+- **텍스트 입력**: 직접 입력
+- **음성 녹음·메모**: 노트북 마이크로 **직접 녹음**하거나 mp3/wav 업로드
+  - **녹음 메모(메모장)**: 녹음하면서 자유롭게 메모 → 종료 시 **'메모' 입력 1건**으로 자동 저장 (메모는 녹음 흐름에 통합, 단독 탭 없음). 녹음 상태 전환 시 레이아웃이 흔들리지 않도록 메모·레벨 영역 고정
   - **입력 장치 선택**: 사용할 마이크를 드롭다운에서 직접 지정(브라우저 기본 장치가 무음일 때 대응) + 장치 목록 새로고침
   - **입력 레벨 미터**: 녹음 중 입력 신호를 실시간 표시 → 마이크가 소리를 잡는지 즉시 확인. 무음이면 경고
   - **자동 저장**: 녹음 종료(또는 파일 선택) 즉시 음원이 **자동 저장**됨 — 별도 버튼을 안 눌러도 유실되지 않음
@@ -110,11 +112,13 @@ VITE_SUPABASE_ANON_KEY=eyJhbGci...
   - 첨부 목록에서 각 음원 **재생 / 다운로드(mp3) / 삭제**(여러 개 누적 가능, 각각 개별 관리)
   - **동시 녹음 방지(실시간 잠금)**: 한 통은 동시에 한 명만 녹음. 다른 사람이 녹음 중이면 "○○님이 녹음 중" 표시 + 시작 버튼 비활성. Supabase Realtime Presence 기반([`src/lib/useRecordingLock.ts`](src/lib/useRecordingLock.ts))이라 **탭 닫힘/이탈 시 잠금 자동 해제**(잔류 없음). Supabase 미설정 시 비활성
 
-### AI 요약 (7개 항목)
+### AI 요약 (4개 항목)
 
 `generateTongSummary()` 가 입력 기록을 바탕으로 다음을 생성합니다 (현재 Mock, 사용자 수정 가능):
 
-1. 한 줄 요약 2. 주요 쟁점 3. 결론 4. 보류 사항 5. 확인 필요 사항 6. 후속 과제(초안) 7. 반복 이슈 키워드
+1. **한 줄 요약** 2. **전체 내용**(입력 내용 구조화·정리 본문) 3. **키워드**(메인 키워드) 4. **Comments**(참여자 의견 — 작성자 표시, 댓글식. `tong_comments`)
+
+> Comments 는 보기 권한자도 작성 가능(의견 수렴 목적), 본인 댓글·편집권한자는 삭제 가능.
 
 ## Mock 연동 구조
 

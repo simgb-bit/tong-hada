@@ -60,6 +60,7 @@ create table if not exists tong_inputs (
   content          text not null,
   created_by       text references employees (id) on delete set null,
   created_by_name  text,
+  deleted_at       timestamptz,
   created_at       timestamptz not null default now()
 );
 
@@ -68,16 +69,29 @@ create table if not exists tong_summaries (
   id                  text primary key,
   tong_id             text not null unique references tongs (id) on delete cascade,
   one_line            text default '',
+  full_summary        text default '',          -- 전체 내용(구조화 정리)
+  recurring_keywords  jsonb not null default '[]'::jsonb,  -- 키워드
+  -- 구버전 컬럼(미사용, 분석 폴백). 신규 프로젝트는 없어도 무방
   key_issues          jsonb not null default '[]'::jsonb,
   conclusions         jsonb not null default '[]'::jsonb,
   pending_items       jsonb not null default '[]'::jsonb,
   to_confirm          jsonb not null default '[]'::jsonb,
   action_item_drafts  jsonb not null default '[]'::jsonb,
-  recurring_keywords  jsonb not null default '[]'::jsonb,
   source              text not null default 'mock' check (source in ('mock', 'manual')),
   created_at          timestamptz not null default now(),
   updated_at          timestamptz not null default now()
 );
+
+-- ── 통 댓글 (참여자 의견) ────────────────────────────────────────────────────
+create table if not exists tong_comments (
+  id           text primary key,
+  tong_id      text not null references tongs (id) on delete cascade,
+  author_id    text references employees (id) on delete set null,
+  author_name  text,
+  content      text not null,
+  created_at   timestamptz not null default now()
+);
+create index if not exists idx_comments_tong on tong_comments (tong_id);
 
 -- ── 후속 과제 ────────────────────────────────────────────────────────────────
 create table if not exists action_items (

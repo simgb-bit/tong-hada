@@ -21,6 +21,7 @@ import type {
   Folder,
   Organization,
   Tong,
+  TongComment,
   TongInput,
   TongShare,
   TongSummary,
@@ -47,6 +48,7 @@ interface DataContextValue extends FullDataset {
   emptyTrash: () => Promise<void>
 
   addInput: (input: TongInput) => Promise<void>
+  setInputDeleted: (id: string, deletedAt: string | null) => Promise<void>
 
   saveSummary: (summary: TongSummary) => Promise<void>
 
@@ -55,6 +57,9 @@ interface DataContextValue extends FullDataset {
 
   addAttachment: (att: Attachment) => Promise<void>
   deleteAttachment: (id: string) => Promise<void>
+
+  addComment: (comment: TongComment) => Promise<void>
+  deleteComment: (id: string) => Promise<void>
 
   setEmployees: (employees: Employee[]) => Promise<void>
 
@@ -80,6 +85,7 @@ const empty: FullDataset = {
   shares: [],
   folders: [],
   folderItems: [],
+  comments: [],
 }
 
 const DataContext = createContext<DataContextValue | null>(null)
@@ -164,6 +170,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setData((d) => ({ ...d, inputs: [...d.inputs, input] }))
   }, [])
 
+  const setInputDeleted = useCallback(async (id: string, deletedAt: string | null) => {
+    await repo.setInputDeleted(id, deletedAt)
+    setData((d) => ({ ...d, inputs: d.inputs.map((i) => (i.id === id ? { ...i, deleted_at: deletedAt } : i)) }))
+  }, [])
+
   const saveSummary = useCallback(async (summary: TongSummary) => {
     await repo.upsertSummary(summary)
     setData((d) => {
@@ -198,6 +209,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (path) await removeRecordings([path])
     await repo.removeAttachment(id)
     setData((d) => ({ ...d, attachments: d.attachments.filter((a) => a.id !== id) }))
+  }, [])
+
+  const addComment = useCallback(async (comment: TongComment) => {
+    await repo.addComment(comment)
+    setData((d) => ({ ...d, comments: [...d.comments, comment] }))
+  }, [])
+
+  const deleteComment = useCallback(async (id: string) => {
+    await repo.removeComment(id)
+    setData((d) => ({ ...d, comments: d.comments.filter((c) => c.id !== id) }))
   }, [])
 
   const setEmployees = useCallback(async (employees: Employee[]) => {
@@ -269,11 +290,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       deleteTong,
       emptyTrash,
       addInput,
+      setInputDeleted,
       saveSummary,
       upsertTongType,
       deleteTongType,
       addAttachment,
       deleteAttachment,
+      addComment,
+      deleteComment,
       setEmployees,
       addShare,
       removeShare,
@@ -282,7 +306,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addTongToFolder,
       removeTongFromFolder,
     }),
-    [data, activeTongs, trashedTongs, loading, error, refresh, upsertTong, trashTong, restoreTong, deleteTong, emptyTrash, addInput, saveSummary, upsertTongType, deleteTongType, addAttachment, deleteAttachment, setEmployees, addShare, removeShare, upsertFolder, deleteFolder, addTongToFolder, removeTongFromFolder],
+    [data, activeTongs, trashedTongs, loading, error, refresh, upsertTong, trashTong, restoreTong, deleteTong, emptyTrash, addInput, setInputDeleted, saveSummary, upsertTongType, deleteTongType, addAttachment, deleteAttachment, addComment, deleteComment, setEmployees, addShare, removeShare, upsertFolder, deleteFolder, addTongToFolder, removeTongFromFolder],
   )
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>

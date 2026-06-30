@@ -10,6 +10,7 @@ import type {
   FolderItem,
   Organization,
   Tong,
+  TongComment,
   TongInput,
   TongShare,
   TongSummary,
@@ -165,6 +166,8 @@ export const seedSummaries: TongSummary[] = [
     id: 'sum-2',
     tong_id: 'tong-2',
     one_line: '캠페인 클릭률은 상승했으나 전환율 정체로 랜딩 페이지 개선이 시급함.',
+    full_summary:
+      '■ 성과\n- 클릭률 전주 대비 12% 상승\n- 예산 70% 집행\n\n■ 쟁점\n- 전환율 정체 → 랜딩 페이지 개선 필요\n- 디자인 리소스 부족으로 개선 일정 지연 우려\n\n■ 결론\n- 성과 좋은 채널로 잔여 예산 재배분\n- 랜딩 페이지 개선 추진(리소스 확보 후 일정 확정)',
     key_issues: ['전환율 정체', '디자인 리소스 부족으로 일정 지연 우려', '잔여 예산 재배분'],
     conclusions: ['성과 좋은 채널로 잔여 예산 재배분', '랜딩 페이지 개선 추진'],
     pending_items: ['랜딩 페이지 개선 일정 확정 (디자인 리소스 확보 후)'],
@@ -179,6 +182,8 @@ export const seedSummaries: TongSummary[] = [
     id: 'sum-3',
     tong_id: 'tong-3',
     one_line: 'AI 회의 플랫폼 1차 범위를 Mock 기반으로 확정하고 4주 마일스톤을 설정함.',
+    full_summary:
+      '■ 범위\n- 1차: 회의 기록 구조화 + 후속 정리, STT/AI는 Mock\n- 2차: 실제 STT/AI API 연동 검토\n\n■ 일정\n- 4주 단위 마일스톤, 3주 차 첫 데모\n\n■ 리스크\n- 요구사항 변경 가능성 → 범위 관리 중요',
     key_issues: ['요구사항 변경 가능성', '범위 관리 필요', '실제 API 연동 시점'],
     conclusions: ['1차는 Mock 구현', '4주 단위 마일스톤, 3주 차 첫 데모'],
     pending_items: ['실제 STT/AI API 연동은 2차로 보류'],
@@ -211,6 +216,11 @@ export const seedFolderItems: FolderItem[] = [
   { folder_id: 'folder-2', tong_id: 'tong-2', added_at: isoOffsetDays(-2) },
 ]
 
+// ── 통 댓글 (데모) ───────────────────────────────────────────────────────────
+export const seedComments: TongComment[] = [
+  { id: 'cmt-1', tong_id: 'tong-3', author_id: 'emp-4', author_name: '최하은', content: '범위 정의 좋습니다. 2차 API 연동 예산은 다음 통에서 확정하죠.', created_at: isoOffsetDays(-4) },
+]
+
 export interface SeedBundle {
   organizations: Organization[]
   employees: Employee[]
@@ -222,6 +232,7 @@ export interface SeedBundle {
   shares: TongShare[]
   folders: Folder[]
   folderItems: FolderItem[]
+  comments: TongComment[]
 }
 
 /** 깊은 복사된 시드 번들을 반환 (In-Memory 저장소 초기화용) */
@@ -237,6 +248,7 @@ export function buildSeedBundle(): SeedBundle {
     shares: seedShares,
     folders: seedFolders,
     folderItems: seedFolderItems,
+    comments: seedComments,
   })
 }
 

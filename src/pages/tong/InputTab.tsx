@@ -5,7 +5,7 @@ import { useData } from '@/store/DataContext'
 import { useCurrentUser } from '@/store/CurrentUserContext'
 import { useRecordingLock, type RecordingLock } from '@/lib/useRecordingLock'
 import { Card, Badge, ConfirmModal, Modal } from '@/components/ui'
-import { TeamsIcon, TextIcon, MemoIcon, MicIcon, FileIcon, StopIcon, TrashIcon } from '@/components/icons'
+import { TeamsIcon, TextIcon, MicIcon, FileIcon, StopIcon, TrashIcon } from '@/components/icons'
 import { cn, formatDateTime, formatDate, formatFileSize } from '@/lib/utils'
 import { uid } from '@/lib/db'
 import { fetchTeamsTranscript } from '@/lib/teams'
@@ -14,11 +14,11 @@ import { uploadRecording, recordingExpiresAt, getRecordingUrl } from '@/lib/stor
 import { convertToMp3 } from '@/lib/mp3'
 import type { Tong, TongInput, TongInputType, Attachment } from '@/types'
 
+// 입력 방식: 메모는 단독 탭 대신 '음성 녹음' 화면에서 녹음 중 실시간 메모로 통합됨
 const METHODS: { key: TongInputType; label: string; icon: React.ReactNode }[] = [
   { key: 'teams', label: 'Teams 녹취', icon: <TeamsIcon className="h-4 w-4" /> },
   { key: 'text', label: '텍스트 입력', icon: <TextIcon className="h-4 w-4" /> },
-  { key: 'memo', label: '메모 입력', icon: <MemoIcon className="h-4 w-4" /> },
-  { key: 'audio', label: '음성 녹음·파일', icon: <MicIcon className="h-4 w-4" /> },
+  { key: 'audio', label: '음성 녹음·메모', icon: <MicIcon className="h-4 w-4" /> },
 ]
 
 const TYPE_LABEL: Record<TongInputType, string> = {
@@ -29,15 +29,19 @@ const TYPE_LABEL: Record<TongInputType, string> = {
 }
 
 export function InputTab({ tong, readOnly = false }: { tong: Tong; readOnly?: boolean }) {
-  const { inputs, attachments, addInput, addAttachment } = useData()
+  const { inputs, attachments, addInput, addAttachment, setInputDeleted } = useData()
   const { currentUser } = useCurrentUser()
   const [method, setMethod] = useState<TongInputType>('teams')
   const [detail, setDetail] = useState<TongInput | null>(null) // 입력 상세 보기
+  const [deleteTarget, setDeleteTarget] = useState<TongInput | null>(null) // 삭제 확인 대상
+  const [showDeleted, setShowDeleted] = useState(false) // 삭제된 입력 펼치기
 
-  const tongInputs = useMemo(
+  const allTongInputs = useMemo(
     () => inputs.filter((i) => i.tong_id === tong.id).sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at)),
     [inputs, tong.id],
   )
+  const tongInputs = useMemo(() => allTongInputs.filter((i) => !i.deleted_at), [allTongInputs])
+  const deletedInputs = useMemo(() => allTongInputs.filter((i) => i.deleted_at), [allTongInputs])
   const tongAttachments = useMemo(() => attachments.filter((a) => a.tong_id === tong.id), [attachments, tong.id])
 
   async function saveInput(type: TongInputType, content: string) {
@@ -52,6 +56,13 @@ export function InputTab({ tong, readOnly = false }: { tong: Tong; readOnly?: bo
       created_at: new Date().toISOString(),
     }
     await addInput(input)
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return
+    const target = deleteTarget
+    setDeleteTarget(null)
+    await setInputDeleted(target.id, new Date().toISOString())
   }
 
   return (
@@ -85,8 +96,7 @@ export function InputTab({ tong, readOnly = false }: { tong: Tong; readOnly?: bo
 
             {method === 'teams' && <TeamsInput tong={tong} onSave={(c) => saveInput('teams', c)} />}
             {method === 'text' && <TextInput onSave={(c) => saveInput('text', c)} placeholder="회의 내용을 직접 입력하세요." label="텍스트 입력" />}
-            {method === 'memo' && <TextInput onSave={(c) => saveInput('memo', c)} placeholder="회의 중 작성한 자유 메모를 입력하세요." label="메모 입력" />}
-            {method === 'audio' && <AudioInput tong={tong} onTranscribed={(c) => saveInput('audio', c)} onAttach={addAttachment} />}
+            {method === 'audio' && <AudioInput tong={tong} onTranscribed={(c) => saveInput('audio', c)} onSaveMemo={(c) => saveInput('memo', c)} onAttach={addAttachment} />}
           </Card>
         )}
       </div>
@@ -98,34 +108,66 @@ export function InputTab({ tong, readOnly = false }: { tong: Tong; readOnly?: bo
           {tongInputs.length === 0 ? (
             <p className="py-6 text-center text-sm text-gray-400">아직 입력된 기록이 없습니다.</p>
           ) : (
-            <ul className="space-y-3">
+            <ul className="max-h-[440px] space-y-2 overflow-y-auto pr-1">
               {tongInputs.map((i) => (
-                <li key={i.id}>
-                  <button
-                    type="button"
-                    onClick={() => setDetail(i)}
-                    className="w-full rounded-xl border border-gray-100 p-3 text-left transition-colors hover:bg-gray-50"
-                  >
-                    <div className="mb-1 flex items-center justify-between">
+                <li key={i.id} className="rounded-lg border border-gray-100 p-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-1.5">
                       <Badge className="bg-brand-50 text-brand-700">{TYPE_LABEL[i.input_type]}</Badge>
-                      <span className="text-xs text-gray-400">{formatDateTime(i.created_at)}</span>
+                      <span className="truncate text-xs text-gray-400" title={`${i.created_by_name ?? '미상'} · ${formatDateTime(i.created_at)}`}>
+                        {i.created_by_name ?? '미상'} · {formatDateTime(i.created_at)}
+                      </span>
                     </div>
-                    <p className="mb-1 text-xs text-gray-500">
-                      작성자: <span className="font-medium text-gray-700">{i.created_by_name ?? '미상'}</span>
-                    </p>
-                    <p className="line-clamp-3 whitespace-pre-wrap text-xs text-gray-600">{i.content}</p>
-                    <p className="mt-1.5 text-xs font-medium text-brand-600">자세히 보기 →</p>
+                    {!readOnly && (
+                      <button
+                        type="button"
+                        className="btn-ghost shrink-0 px-1.5 py-0.5 text-gray-400 hover:text-red-500"
+                        onClick={() => setDeleteTarget(i)}
+                        title="입력 삭제"
+                      >
+                        <TrashIcon className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <button type="button" onClick={() => setDetail(i)} className="mt-1 w-full text-left" title="자세히 보기">
+                    <p className="line-clamp-2 whitespace-pre-wrap text-xs text-gray-600 hover:text-gray-900">{i.content}</p>
                   </button>
                 </li>
               ))}
             </ul>
           )}
+
+          {/* 삭제된 입력 (소프트 삭제 → 복구 가능) */}
+          {deletedInputs.length > 0 && (
+            <div className="mt-3 border-t border-gray-100 pt-3">
+              <button type="button" className="text-xs font-medium text-gray-400 hover:text-gray-600" onClick={() => setShowDeleted((v) => !v)}>
+                삭제된 입력 {deletedInputs.length}개 {showDeleted ? '숨기기' : '보기'}
+              </button>
+              {showDeleted && (
+                <ul className="mt-2 space-y-2">
+                  {deletedInputs.map((i) => (
+                    <li key={i.id} className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-3">
+                      <div className="mb-1 flex items-center justify-between gap-2">
+                        <Badge className="bg-gray-100 text-gray-500">{TYPE_LABEL[i.input_type]} · 삭제됨</Badge>
+                        {!readOnly && (
+                          <button type="button" className="text-xs font-medium text-brand-600 hover:underline" onClick={() => void setInputDeleted(i.id, null)}>
+                            복구
+                          </button>
+                        )}
+                      </div>
+                      <p className="line-clamp-2 whitespace-pre-wrap text-xs text-gray-400">{i.content}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </Card>
 
         {tongAttachments.length > 0 && (
           <Card>
-            <h3 className="mb-3 font-semibold text-gray-900">첨부 파일</h3>
-            <ul className="space-y-2">
+            <h3 className="mb-3 font-semibold text-gray-900">첨부 파일 ({tongAttachments.length})</h3>
+            <ul className="max-h-[280px] space-y-2 overflow-y-auto pr-1">
               {tongAttachments.map((a) => (
                 <AttachmentRow key={a.id} att={a} readOnly={readOnly} />
               ))}
@@ -150,6 +192,20 @@ export function InputTab({ tong, readOnly = false }: { tong: Tong; readOnly?: bo
           </div>
         )}
       </Modal>
+
+      {/* 입력 삭제 확인 (소프트 삭제 — 복구 가능) */}
+      <ConfirmModal
+        open={deleteTarget !== null}
+        title="이 입력을 삭제할까요?"
+        message={
+          deleteTarget
+            ? `[${TYPE_LABEL[deleteTarget.input_type]} · ${deleteTarget.created_by_name ?? '미상'}] "${deleteTarget.content.slice(0, 80)}${deleteTarget.content.length > 80 ? '…' : ''}" — 삭제하면 AI 요약에서 제외됩니다. "삭제된 입력"에서 복구할 수 있습니다.`
+            : ''
+        }
+        confirmLabel="삭제"
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   )
 }
@@ -350,7 +406,7 @@ function TextInput({ onSave, placeholder, label }: { onSave: (c: string) => Prom
 }
 
 // ── 음성 (마이크 녹음 / 파일 업로드) ─────────────────────────────────────────
-function AudioInput({ tong, onTranscribed, onAttach }: { tong: Tong; onTranscribed: (c: string) => Promise<void>; onAttach: (a: Attachment) => Promise<void> }) {
+function AudioInput({ tong, onTranscribed, onSaveMemo, onAttach }: { tong: Tong; onTranscribed: (c: string) => Promise<void>; onSaveMemo: (c: string) => Promise<void>; onAttach: (a: Attachment) => Promise<void> }) {
   const [sub, setSub] = useState<'record' | 'upload'>('record')
   const { currentUser } = useCurrentUser()
   const lock = useRecordingLock(tong.id, currentUser?.id ?? '', currentUser?.name ?? '익명')
@@ -387,7 +443,7 @@ function AudioInput({ tong, onTranscribed, onAttach }: { tong: Tong; onTranscrib
         <SubTab active={sub === 'record'} onClick={() => setSub('record')} icon={<MicIcon className="h-4 w-4" />} label="마이크 녹음" />
         <SubTab active={sub === 'upload'} onClick={() => setSub('upload')} icon={<FileIcon className="h-4 w-4" />} label="파일 업로드" />
       </div>
-      {sub === 'record' ? <MicRecorder onSaveAudio={saveAudio} onStt={runStt} lock={lock} /> : <AudioUpload onSaveAudio={saveAudio} onStt={runStt} />}
+      {sub === 'record' ? <MicRecorder onSaveAudio={saveAudio} onStt={runStt} onSaveMemo={onSaveMemo} lock={lock} /> : <AudioUpload onSaveAudio={saveAudio} onStt={runStt} />}
     </div>
   )
 }
@@ -408,9 +464,11 @@ function SubTab({ active, onClick, icon, label }: { active: boolean; onClick: ()
 }
 
 // ── 마이크 녹음 (MediaRecorder) ──────────────────────────────────────────────
-function MicRecorder({ onSaveAudio, onStt, lock }: { onSaveAudio: (file: File) => Promise<void>; onStt: (file: File) => Promise<string>; lock: RecordingLock }) {
+function MicRecorder({ onSaveAudio, onStt, onSaveMemo, lock }: { onSaveAudio: (file: File) => Promise<void>; onStt: (file: File) => Promise<string>; onSaveMemo: (c: string) => Promise<void>; lock: RecordingLock }) {
   const [recording, setRecording] = useState(false)
   const [seconds, setSeconds] = useState(0)
+  // 녹음 메모 (메모장 방식 — 자유 입력, 녹음 종료 시 함께 저장)
+  const [memoText, setMemoText] = useState('')
   const [recordedFile, setRecordedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [level, setLevel] = useState(0) // 입력 레벨 0~100
@@ -549,6 +607,7 @@ function MicRecorder({ onSaveAudio, onStt, lock }: { onSaveAudio: (file: File) =
     setRecordedFile(null)
     setSilent(false)
     setSaved(false)
+    setMemoText('')
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
       setError('이 브라우저는 마이크 녹음을 지원하지 않습니다. (HTTPS 환경의 Chrome/Edge 권장)')
       return
@@ -602,6 +661,12 @@ function MicRecorder({ onSaveAudio, onStt, lock }: { onSaveAudio: (file: File) =
     setRecording(false)
     recorderRef.current?.stop()
     void lock.release() // 녹음 종료 → 잠금 해제
+    // 메모장 내용을 '메모' 입력 1건으로 저장
+    const memo = memoText.trim()
+    if (memo) {
+      void onSaveMemo(memo)
+      setMemoText('')
+    }
   }
 
   async function transcribe() {
@@ -663,20 +728,18 @@ function MicRecorder({ onSaveAudio, onStt, lock }: { onSaveAudio: (file: File) =
           <p className="text-sm text-gray-500">버튼을 눌러 회의 녹음을 시작하세요.</p>
         )}
 
-        {/* 입력 레벨 미터 (녹음 중) */}
-        {recording && (
-          <div className="mt-3 w-56">
-            <div className="h-2.5 w-full overflow-hidden rounded-full bg-gray-100">
-              <div
-                className={cn('h-full rounded-full transition-[width] duration-75', level < 5 ? 'bg-gray-300' : level < 60 ? 'bg-green-500' : 'bg-amber-500')}
-                style={{ width: `${level}%` }}
-              />
-            </div>
-            <p className={cn('mt-1 text-xs', level < 5 ? 'text-gray-400' : 'text-gray-500')}>
-              {level < 5 ? '입력 신호 없음 — 말해도 막대가 안 움직이면 마이크 입력을 확인하세요' : '입력 감지 중'}
-            </p>
+        {/* 입력 레벨 미터 (높이 고정 → 녹음 상태 전환 시 레이아웃 흔들림 방지) */}
+        <div className="mt-3 h-[42px] w-56">
+          <div className="h-2.5 w-full overflow-hidden rounded-full bg-gray-100">
+            <div
+              className={cn('h-full rounded-full transition-[width] duration-75', !recording || level < 5 ? 'bg-gray-300' : level < 60 ? 'bg-green-500' : 'bg-amber-500')}
+              style={{ width: `${recording ? level : 0}%` }}
+            />
           </div>
-        )}
+          <p className="mt-1 h-4 text-xs text-gray-400">
+            {recording ? (level < 5 ? '입력 신호 없음 — 마이크 입력을 확인하세요' : '입력 감지 중') : ''}
+          </p>
+        </div>
 
         <div className="mt-4">
           {recording ? (
@@ -689,6 +752,18 @@ function MicRecorder({ onSaveAudio, onStt, lock }: { onSaveAudio: (file: File) =
             </button>
           )}
         </div>
+      </div>
+
+      {/* 녹음 메모 (메모장 — 항상 표시해 레이아웃 안정) */}
+      <div>
+        <label className="label">메모</label>
+        <p className="mb-2 text-xs text-gray-400">녹음하면서 자유롭게 적어두세요. <span className="font-medium">녹음 종료 시</span> 메모로 함께 저장됩니다.</p>
+        <textarea
+          className="input min-h-[120px]"
+          value={memoText}
+          onChange={(e) => setMemoText(e.target.value)}
+          placeholder="예: 핵심 결정 사항, 후속 확인 필요 항목 등"
+        />
       </div>
 
       {error && <p className="text-sm text-red-500">{error}</p>}
