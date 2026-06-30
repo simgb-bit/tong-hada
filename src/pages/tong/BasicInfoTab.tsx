@@ -9,7 +9,7 @@ import type { Tong, TongStatus } from '@/types'
 
 const STATUSES: TongStatus[] = ['예정', '진행 완료', '보류']
 
-export function BasicInfoTab({ tong }: { tong: Tong }) {
+export function BasicInfoTab({ tong, readOnly = false }: { tong: Tong; readOnly?: boolean }) {
   const { organizations, tongTypes, upsertTong } = useData()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(tong)
@@ -38,9 +38,11 @@ export function BasicInfoTab({ tong }: { tong: Tong }) {
   if (!editing) {
     return (
       <Card className="space-y-4">
-        <div className="flex justify-end">
-          <button className="btn-secondary" onClick={() => { setDraft(tong); setEditing(true) }}>편집</button>
-        </div>
+        {!readOnly && (
+          <div className="flex justify-end">
+            <button className="btn-secondary" onClick={() => { setDraft(tong); setEditing(true) }}>편집</button>
+          </div>
+        )}
         <Row label="통명" value={tong.title} />
         <Row label="통 유형" value={tong.type} />
         <Row label="일시" value={formatDateTime(tong.scheduled_at)} />

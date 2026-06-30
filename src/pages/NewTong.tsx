@@ -5,9 +5,10 @@ import { useNavigate } from 'react-router-dom'
 import { useData } from '@/store/DataContext'
 import { useCurrentUser } from '@/store/CurrentUserContext'
 import { PageHeader, Card } from '@/components/ui'
-import { ParticipantPicker } from '@/components/ParticipantPicker'
+import { ParticipantPicker, participantLabel } from '@/components/ParticipantPicker'
 import { FolderPicker } from '@/components/FolderPicker'
 import { uid } from '@/lib/db'
+import type { TongShare } from '@/types'
 import { getCoreOrgId } from '@/lib/auth'
 import { myFolders } from '@/lib/selectors'
 import type { Tong, TongStatus } from '@/types'
@@ -16,7 +17,7 @@ const STATUSES: TongStatus[] = ['예정', '진행 완료', '보류']
 
 export function NewTong() {
   const data = useData()
-  const { organizations, employees, tongTypes, upsertTong, addTongToFolder } = data
+  const { organizations, employees, tongTypes, upsertTong, addTongToFolder, addShare } = data
   const { currentUser } = useCurrentUser()
   const navigate = useNavigate()
 
@@ -81,6 +82,25 @@ export function NewTong() {
       await upsertTong(tong)
       // 선택한 폴더에 분류 (있을 때만)
       if (folderIds.length) await Promise.all(folderIds.map((fid) => addTongToFolder(fid, tong.id)))
+      // 참석자에게 자동 공유 + 입력 권한(edit) 부여 → 참석자의 "공유받은 통" 에 즉시 노출
+      const shareTargets = employees.filter(
+        (e) => participants.includes(participantLabel(e)) && e.id !== currentUser?.id,
+      )
+      if (shareTargets.length) {
+        await Promise.all(
+          shareTargets.map((e) => {
+            const share: TongShare = {
+              id: uid('share'),
+              tong_id: tong.id,
+              shared_with: e.id,
+              shared_by: currentUser?.id ?? '',
+              permission: 'edit',
+              created_at: nowIso,
+            }
+            return addShare(share)
+          }),
+        )
+      }
       navigate(`/tongs/${tong.id}`)
     } finally {
       setSaving(false)

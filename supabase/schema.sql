@@ -54,11 +54,13 @@ create table if not exists tongs (
 
 -- ── 통 입력 기록 ─────────────────────────────────────────────────────────────
 create table if not exists tong_inputs (
-  id          text primary key,
-  tong_id     text not null references tongs (id) on delete cascade,
-  input_type  text not null check (input_type in ('teams', 'text', 'memo', 'audio')),
-  content     text not null,
-  created_at  timestamptz not null default now()
+  id               text primary key,
+  tong_id          text not null references tongs (id) on delete cascade,
+  input_type       text not null check (input_type in ('teams', 'text', 'memo', 'audio')),
+  content          text not null,
+  created_by       text references employees (id) on delete set null,
+  created_by_name  text,
+  created_at       timestamptz not null default now()
 );
 
 -- ── AI 요약 (통 1건당 1행) ───────────────────────────────────────────────────

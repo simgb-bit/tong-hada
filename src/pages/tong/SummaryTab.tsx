@@ -8,7 +8,7 @@ import { uid } from '@/lib/db'
 import { generateTongSummary } from '@/lib/ai'
 import type { Tong, TongSummary } from '@/types'
 
-export function SummaryTab({ tong, onGoToInput }: { tong: Tong; onGoToInput: () => void }) {
+export function SummaryTab({ tong, onGoToInput, readOnly = false }: { tong: Tong; onGoToInput: () => void; readOnly?: boolean }) {
   const { inputs, summaries, saveSummary } = useData()
   const existing = useMemo(() => summaries.find((s) => s.tong_id === tong.id), [summaries, tong.id])
   const tongInputs = useMemo(() => inputs.filter((i) => i.tong_id === tong.id), [inputs, tong.id])
@@ -57,7 +57,7 @@ export function SummaryTab({ tong, onGoToInput }: { tong: Tong; onGoToInput: () 
           title="아직 AI 요약이 없습니다."
           description={tongInputs.length === 0 ? '먼저 입력 탭에서 회의 기록을 추가하세요.' : '입력된 회의 기록을 바탕으로 AI 요약을 생성합니다. (Mock)'}
           action={
-            tongInputs.length === 0 ? (
+            readOnly ? undefined : tongInputs.length === 0 ? (
               <button className="btn-secondary" onClick={onGoToInput}>입력 탭으로 이동</button>
             ) : (
               <button className="btn-primary" onClick={generate} disabled={generating}>
@@ -79,25 +79,27 @@ export function SummaryTab({ tong, onGoToInput }: { tong: Tong; onGoToInput: () 
           </Badge>
           <span className="text-xs text-gray-400">입력 기록 {tongInputs.length}건 기반</span>
         </div>
-        <div className="flex gap-2">
-          <button className="btn-secondary" onClick={generate} disabled={generating}>
-            <SparkIcon className="h-4 w-4" />{generating ? '재생성 중…' : 'AI 재생성'}
-          </button>
-          <button className="btn-primary" onClick={save} disabled={!dirty}>저장</button>
-        </div>
+        {!readOnly && (
+          <div className="flex gap-2">
+            <button className="btn-secondary" onClick={generate} disabled={generating}>
+              <SparkIcon className="h-4 w-4" />{generating ? '재생성 중…' : 'AI 재생성'}
+            </button>
+            <button className="btn-primary" onClick={save} disabled={!dirty}>저장</button>
+          </div>
+        )}
       </div>
 
       <Card>
         <SummaryField label="1. 한 줄 요약">
-          <textarea className="input min-h-[60px]" value={draft.one_line} onChange={(e) => persist({ ...draft, one_line: e.target.value })} />
+          <textarea className="input min-h-[60px]" value={draft.one_line} readOnly={readOnly} onChange={(e) => persist({ ...draft, one_line: e.target.value })} />
         </SummaryField>
       </Card>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <ListField label="2. 주요 쟁점" items={draft.key_issues} onChange={(v) => persist({ ...draft, key_issues: v })} />
-        <ListField label="3. 결론" items={draft.conclusions} onChange={(v) => persist({ ...draft, conclusions: v })} />
-        <ListField label="4. 보류 사항" items={draft.pending_items} onChange={(v) => persist({ ...draft, pending_items: v })} />
-        <ListField label="5. 확인 필요 사항" items={draft.to_confirm} onChange={(v) => persist({ ...draft, to_confirm: v })} />
+        <ListField label="2. 주요 쟁점" items={draft.key_issues} onChange={(v) => persist({ ...draft, key_issues: v })} readOnly={readOnly} />
+        <ListField label="3. 결론" items={draft.conclusions} onChange={(v) => persist({ ...draft, conclusions: v })} readOnly={readOnly} />
+        <ListField label="4. 보류 사항" items={draft.pending_items} onChange={(v) => persist({ ...draft, pending_items: v })} readOnly={readOnly} />
+        <ListField label="5. 확인 필요 사항" items={draft.to_confirm} onChange={(v) => persist({ ...draft, to_confirm: v })} readOnly={readOnly} />
       </div>
 
       <Card>
@@ -109,6 +111,7 @@ export function SummaryTab({ tong, onGoToInput }: { tong: Tong; onGoToInput: () 
                 <input
                   className="input flex-1"
                   value={d}
+                  readOnly={readOnly}
                   onChange={(e) => {
                     const next = [...draft.action_item_drafts]
                     next[idx] = e.target.value
@@ -144,7 +147,7 @@ function SummaryField({ label, children }: { label: string; children: React.Reac
   )
 }
 
-function ListField({ label, items, onChange }: { label: string; items: string[]; onChange: (v: string[]) => void }) {
+function ListField({ label, items, onChange, readOnly = false }: { label: string; items: string[]; onChange: (v: string[]) => void; readOnly?: boolean }) {
   function update(idx: number, value: string) {
     const next = [...items]
     next[idx] = value
@@ -160,7 +163,7 @@ function ListField({ label, items, onChange }: { label: string; items: string[];
     <Card>
       <div className="mb-2 flex items-center justify-between">
         <h3 className="font-semibold text-gray-900">{label}</h3>
-        <button className="text-xs font-medium text-brand-600 hover:underline" onClick={add}>+ 추가</button>
+        {!readOnly && <button className="text-xs font-medium text-brand-600 hover:underline" onClick={add}>+ 추가</button>}
       </div>
       {items.length === 0 ? (
         <p className="py-3 text-sm text-gray-400">항목 없음</p>
@@ -168,8 +171,8 @@ function ListField({ label, items, onChange }: { label: string; items: string[];
         <ul className="space-y-2">
           {items.map((it, idx) => (
             <li key={idx} className="flex items-center gap-2">
-              <input className="input flex-1" value={it} onChange={(e) => update(idx, e.target.value)} />
-              <button className="btn-ghost shrink-0 px-2 text-gray-400 hover:text-red-500" onClick={() => remove(idx)}>×</button>
+              <input className="input flex-1" value={it} readOnly={readOnly} onChange={(e) => update(idx, e.target.value)} />
+              {!readOnly && <button className="btn-ghost shrink-0 px-2 text-gray-400 hover:text-red-500" onClick={() => remove(idx)}>×</button>}
             </li>
           ))}
         </ul>

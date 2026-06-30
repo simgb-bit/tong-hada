@@ -24,6 +24,7 @@ import { trashPurgeAt } from '@/lib/storage'
 import {
   myTongs,
   sharedWithMeTongs,
+  involvedTongs,
   myFolders,
   tongsInFolder,
   folderIdsOfTong,
@@ -77,18 +78,20 @@ export function TongList() {
   const ownerFolderIdSet = useMemo(() => new Set(ownerFolderIds), [ownerFolderIds])
   const folderName = (id: string) => folders.find((f) => f.id === id)?.name ?? ''
 
+  const involved = useMemo(() => involvedTongs(data, currentUser), [data, currentUser])
+  const allCount = involved.length
   const mineCount = useMemo(() => myTongs(data, currentUser).length, [data, currentUser])
   const sharedCount = useMemo(() => sharedWithMeTongs(data, currentUser).length, [data, currentUser])
   const countInFolder = (id: string) => tongsInFolder(data, id).length
 
   // 선택된 섹션의 기준 통 목록
   const sectionTongs = useMemo(() => {
-    if (section === 'all') return tongs
+    if (section === 'all') return involved // 내가 관여한 통(내 통 ∪ 공유받은 통)
     if (section === 'mine') return myTongs(data, currentUser)
     if (section === 'shared') return sharedWithMeTongs(data, currentUser)
     if (section === 'trash') return trashedTongs
     return tongsInFolder(data, section) // 폴더 id
-  }, [section, tongs, trashedTongs, data, currentUser])
+  }, [section, involved, trashedTongs, data, currentUser])
 
   const isTrash = section === 'trash'
 
@@ -316,7 +319,7 @@ export function TongList() {
         <aside className="lg:w-56 lg:shrink-0">
           <Card className="lg:sticky lg:top-4">
             <nav className="space-y-1">
-              <NavItem active={section === 'all'} onClick={() => setSection('all')} icon={<ArchiveIcon className="h-4 w-4" />} label="전체" count={tongs.length} />
+              <NavItem active={section === 'all'} onClick={() => setSection('all')} icon={<ArchiveIcon className="h-4 w-4" />} label="전체" count={allCount} />
               <NavItem active={section === 'mine'} onClick={() => setSection('mine')} icon={<UserIcon className="h-4 w-4" />} label="내 통" count={mineCount} />
               <NavItem active={section === 'shared'} onClick={() => setSection('shared')} icon={<ShareIcon className="h-4 w-4" />} label="공유받은 통" count={sharedCount} />
               <NavItem active={section === 'trash'} onClick={() => setSection('trash')} icon={<TrashIcon className="h-4 w-4" />} label="휴지통" count={trashedTongs.length} />
