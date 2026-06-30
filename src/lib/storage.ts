@@ -31,6 +31,33 @@ export function trashPurgeAt(deletedAtIso: string): string {
   return d.toISOString()
 }
 
+/**
+ * 비공개 음원에 대한 서명 URL(signed URL)을 생성한다.
+ * recordings 버킷은 비공개이므로 재생/다운로드하려면 서명 URL 이 필요하다.
+ *
+ * @param path       storage_path (버킷 내 경로)
+ * @param expiresSec 유효 시간(초). 기본 1시간
+ * @param download   true 면 다운로드용(첨부) URL, false 면 인라인 재생용
+ * @returns 서명 URL. 실패/미보관 시 null
+ */
+export async function getRecordingUrl(
+  path: string,
+  expiresSec = 3600,
+  download = false,
+): Promise<string | null> {
+  if (!isSupabaseConfigured || !supabase || !path) return null
+  try {
+    const { data, error } = await supabase.storage
+      .from(RECORDINGS_BUCKET)
+      .createSignedUrl(path, expiresSec, download ? { download: true } : undefined)
+    if (error) throw error
+    return data?.signedUrl ?? null
+  } catch (e) {
+    console.warn('[storage] 서명 URL 생성 실패:', e)
+    return null
+  }
+}
+
 /** 음원 파일들을 Storage 에서 삭제 (영구삭제 시 호출). 실패해도 무시. */
 export async function removeRecordings(paths: string[]): Promise<void> {
   const valid = paths.filter(Boolean)
