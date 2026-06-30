@@ -8,7 +8,7 @@ import { cn, formatDateTime, formatDate, formatFileSize } from '@/lib/utils'
 import { uid } from '@/lib/db'
 import { fetchTeamsTranscript } from '@/lib/teams'
 import { transcribeAudioFile, isSupportedAudio } from '@/lib/stt'
-import { uploadRecording, recordingExpiresAt } from '@/lib/storage'
+import { uploadRecording, recordingExpiresAt, getRecordingUrl } from '@/lib/storage'
 import type { Tong, TongInput, TongInputType, Attachment } from '@/types'
 
 const METHODS: { key: TongInputType; label: string; icon: React.ReactNode }[] = [
@@ -101,22 +101,86 @@ export function InputTab({ tong }: { tong: Tong }) {
             <h3 className="mb-3 font-semibold text-gray-900">첨부 파일</h3>
             <ul className="space-y-2">
               {tongAttachments.map((a) => (
-                <li key={a.id} className="flex items-center gap-2 rounded-lg border border-gray-100 p-2 text-sm">
-                  <FileIcon className="h-4 w-4 shrink-0 text-gray-400" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-gray-700">{a.file_name}</p>
-                    {a.storage_path
-                      ? a.expires_at && <p className="text-xs text-gray-400">{formatDate(a.expires_at)} 자동 삭제 예정</p>
-                      : <p className="text-xs text-gray-400">{a.expires_at ? '음원 만료(삭제됨)' : '음원 미보관'}</p>}
-                  </div>
-                  <span className="shrink-0 text-xs text-gray-400">{formatFileSize(a.file_size)}</span>
-                </li>
+                <AttachmentRow key={a.id} att={a} />
               ))}
             </ul>
           </Card>
         )}
       </div>
     </div>
+  )
+}
+
+// ── 첨부(음원) 행: 재생 / 다운로드 ───────────────────────────────────────────
+function AttachmentRow({ att }: { att: Attachment }) {
+  const [playUrl, setPlayUrl] = useState<string | null>(null)
+  const [loading, setLoading] = useState<null | 'play' | 'download'>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const stored = Boolean(att.storage_path)
+
+  async function play() {
+    if (playUrl) return
+    setLoading('play')
+    setError(null)
+    try {
+      const url = await getRecordingUrl(att.storage_path)
+      if (!url) setError('재생 URL을 가져오지 못했습니다.')
+      else setPlayUrl(url)
+    } finally {
+      setLoading(null)
+    }
+  }
+
+  async function download() {
+    setLoading('download')
+    setError(null)
+    try {
+      const url = await getRecordingUrl(att.storage_path, 3600, true)
+      if (!url) {
+        setError('다운로드 URL을 가져오지 못했습니다.')
+        return
+      }
+      const a = document.createElement('a')
+      a.href = url
+      a.download = att.file_name
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+    } finally {
+      setLoading(null)
+    }
+  }
+
+  return (
+    <li className="rounded-lg border border-gray-100 p-2 text-sm">
+      <div className="flex items-center gap-2">
+        <FileIcon className="h-4 w-4 shrink-0 text-gray-400" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-gray-700">{att.file_name}</p>
+          {stored
+            ? att.expires_at && <p className="text-xs text-gray-400">{formatDate(att.expires_at)} 자동 삭제 예정</p>
+            : <p className="text-xs text-gray-400">{att.expires_at ? '음원 만료(삭제됨)' : '음원 미보관'}</p>}
+        </div>
+        <span className="shrink-0 text-xs text-gray-400">{formatFileSize(att.file_size)}</span>
+        {stored && (
+          <div className="flex shrink-0 items-center gap-1">
+            <button className="btn-ghost px-2 py-1 text-xs" onClick={play} disabled={loading !== null}>
+              {loading === 'play' ? '여는 중…' : '재생'}
+            </button>
+            <button className="btn-ghost px-2 py-1 text-xs" onClick={download} disabled={loading !== null}>
+              {loading === 'download' ? '받는 중…' : '다운로드'}
+            </button>
+          </div>
+        )}
+      </div>
+      {playUrl && (
+        <audio className="mt-2 w-full" controls autoPlay src={playUrl}>
+          브라우저가 오디오 재생을 지원하지 않습니다.
+        </audio>
+      )}
+      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+    </li>
   )
 }
 
