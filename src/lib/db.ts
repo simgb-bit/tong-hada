@@ -55,6 +55,7 @@ export interface Repository {
   deleteTongType(id: string): Promise<void>
 
   addAttachment(att: Attachment): Promise<void>
+  removeAttachment(id: string): Promise<void>
 
   replaceEmployees(employees: Employee[]): Promise<void>
 
@@ -126,6 +127,10 @@ class InMemoryRepository implements Repository {
 
   async addAttachment(att: Attachment): Promise<void> {
     this.data.attachments.push(att)
+  }
+
+  async removeAttachment(id: string): Promise<void> {
+    this.data.attachments = this.data.attachments.filter((a) => a.id !== id)
   }
 
   async replaceEmployees(employees: Employee[]): Promise<void> {
@@ -275,6 +280,11 @@ class SupabaseRepository implements Repository {
 
   async addAttachment(att: Attachment): Promise<void> {
     const { error } = await this.client.from('attachments').insert(att)
+    if (error) throw error
+  }
+
+  async removeAttachment(id: string): Promise<void> {
+    const { error } = await this.client.from('attachments').delete().eq('id', id)
     if (error) throw error
   }
 

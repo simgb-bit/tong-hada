@@ -97,7 +97,14 @@ VITE_SUPABASE_ANON_KEY=eyJhbGci...
 
 - **Teams 녹취**: `Teams 녹취 가져오기` 버튼 → Mock 녹취 생성
 - **텍스트 / 메모 입력**: 직접 입력
-- **음성 녹음·파일**: 노트북 마이크로 **직접 녹음**하거나 mp3/wav 업로드 → `STT 변환`(현재 Mock)
+- **음성 녹음·파일**: 노트북 마이크로 **직접 녹음**하거나 mp3/wav 업로드
+  - **입력 장치 선택**: 사용할 마이크를 드롭다운에서 직접 지정(브라우저 기본 장치가 무음일 때 대응) + 장치 목록 새로고침
+  - **입력 레벨 미터**: 녹음 중 입력 신호를 실시간 표시 → 마이크가 소리를 잡는지 즉시 확인. 무음이면 경고
+  - **MP3 변환**: 녹음 결과(webm)를 클라이언트에서 **mp3 로 변환**([`src/lib/mp3.ts`](src/lib/mp3.ts), lamejs)
+  - **자동 저장**: 녹음 종료(또는 파일 선택) 즉시 음원이 **자동 저장**됨 — 별도 버튼을 안 눌러도 유실되지 않음
+  - **저장 전 미리듣기** 제공
+  - **STT 텍스트 변환은 선택**: `텍스트로 변환(STT)` 버튼(현재 Mock). 음원 저장과 분리되어 있음
+  - 첨부 목록에서 각 음원 **재생 / 다운로드 / 삭제**(여러 개 누적 가능, 각각 개별 관리)
 
 ### AI 요약 (7개 항목)
 
@@ -115,13 +122,15 @@ VITE_SUPABASE_ANON_KEY=eyJhbGci...
 | [`src/lib/stt.ts`](src/lib/stt.ts) | `transcribeAudioFile()` | 음성 → 텍스트 |
 | [`src/lib/teams.ts`](src/lib/teams.ts) | `fetchTeamsTranscript()` | Teams 녹취 |
 
-> 마이크 녹음 자체는 브라우저 `MediaRecorder` 로 실제 동작하며, 녹음 결과의 텍스트 변환만 Mock(STT) 입니다.
+> 마이크 녹음·**MP3 변환**·음원 Storage 업로드/재생/다운로드/삭제는 모두 **실제 동작**합니다. **녹음 결과의 텍스트 변환(STT)만 Mock** 입니다.
 
 ### 음원 보관 / 90일 자동 삭제
 
 녹음·업로드한 **음원 원본은 Supabase Storage(`recordings`)에 보관**하고, 업로드 후 **90일이 지나면 자동 파기**합니다. (요약 텍스트는 영구 보관)
 
 - 업로드: [`src/lib/storage.ts`](src/lib/storage.ts) — `Attachment.expires_at = 업로드 + 90일`. 첨부 목록에 "자동 삭제 예정 / 만료" 표시
+- 재생·다운로드: 비공개 버킷이므로 **서명 URL**(`getRecordingUrl`)로 인라인 재생·다운로드 제공
+- 삭제: 첨부 개별 삭제 시 DB 레코드 + Storage 음원 파일 함께 제거(`deleteAttachment`). 통 삭제 시 해당 통의 모든 음원도 정리
 - 자동 삭제: [`supabase/cron_purge_recordings.sql`](supabase/cron_purge_recordings.sql) — `pg_cron` 일일 작업이 만료 음원을 Storage 에서 삭제
 - Supabase 미설정(데모) 모드에서는 음원을 보관하지 않습니다(텍스트 변환만).
 - ⚠️ 개인정보(녹취)이므로 운영 전환 시 Storage 접근정책을 인증·소유자 기반으로 강화 필요
@@ -137,7 +146,8 @@ src/
 │   ├── seed.ts       # 샘플 데이터 (Core별 통 유형 포함)
 │   ├── auth.ts       # 직책/권한 헬퍼 (Core 리더 이상 판별)
 │   ├── ai.ts / stt.ts / teams.ts   # Mock 연동
-│   ├── storage.ts    # 음원 Storage 업로드 + 90일 보존기간 계산
+│   ├── mp3.ts        # 녹음(webm) → MP3 변환 (lamejs, 동적 import)
+│   ├── storage.ts    # 음원 Storage 업로드/서명URL/삭제 + 90일 보존기간 계산
 │   ├── selectors.ts  # 집계/파생 계산 + 폴더/관여(진행+참석)/공유 셀렉터
 │   └── utils.ts      # 공통 유틸 (날짜/색상 등)
 ├── store/
