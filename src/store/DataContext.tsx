@@ -54,6 +54,7 @@ interface DataContextValue extends FullDataset {
   deleteTongType: (id: string) => Promise<void>
 
   addAttachment: (att: Attachment) => Promise<void>
+  deleteAttachment: (id: string) => Promise<void>
 
   setEmployees: (employees: Employee[]) => Promise<void>
 
@@ -191,6 +192,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setData((d) => ({ ...d, attachments: [...d.attachments, att] }))
   }, [])
 
+  const deleteAttachment = useCallback(async (id: string) => {
+    // Storage 음원 파일도 함께 정리
+    const path = dataRef.current.attachments.find((a) => a.id === id)?.storage_path
+    if (path) await removeRecordings([path])
+    await repo.removeAttachment(id)
+    setData((d) => ({ ...d, attachments: d.attachments.filter((a) => a.id !== id) }))
+  }, [])
+
   const setEmployees = useCallback(async (employees: Employee[]) => {
     await repo.replaceEmployees(employees)
     setData((d) => ({ ...d, employees }))
@@ -264,6 +273,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       upsertTongType,
       deleteTongType,
       addAttachment,
+      deleteAttachment,
       setEmployees,
       addShare,
       removeShare,
@@ -272,7 +282,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addTongToFolder,
       removeTongFromFolder,
     }),
-    [data, activeTongs, trashedTongs, loading, error, refresh, upsertTong, trashTong, restoreTong, deleteTong, emptyTrash, addInput, saveSummary, upsertTongType, deleteTongType, addAttachment, setEmployees, addShare, removeShare, upsertFolder, deleteFolder, addTongToFolder, removeTongFromFolder],
+    [data, activeTongs, trashedTongs, loading, error, refresh, upsertTong, trashTong, restoreTong, deleteTong, emptyTrash, addInput, saveSummary, upsertTongType, deleteTongType, addAttachment, deleteAttachment, setEmployees, addShare, removeShare, upsertFolder, deleteFolder, addTongToFolder, removeTongFromFolder],
   )
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>
