@@ -56,11 +56,11 @@ export function TrashPreviewModal({ tong, open, onClose }: { tong: Tong | null; 
           <div className="rounded-xl border border-gray-100 p-3">
             <p className="mb-1 text-xs font-semibold text-gray-400">AI 요약</p>
             {summary.one_line && <p className="text-sm text-gray-700">{summary.one_line}</p>}
-            {summary.key_issues.length > 0 && (
-              <p className="mt-2 text-xs text-gray-500">쟁점: {summary.key_issues.join(' · ')}</p>
+            {summary.full_summary && (
+              <p className="mt-2 whitespace-pre-wrap text-xs text-gray-500">{summary.full_summary}</p>
             )}
-            {summary.conclusions.length > 0 && (
-              <p className="mt-1 text-xs text-gray-500">결론: {summary.conclusions.join(' · ')}</p>
+            {summary.recurring_keywords.length > 0 && (
+              <p className="mt-2 text-xs text-violet-600">{summary.recurring_keywords.map((k) => `#${k}`).join(' ')}</p>
             )}
           </div>
         )}

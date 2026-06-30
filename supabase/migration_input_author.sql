@@ -6,3 +6,5 @@
 
 alter table tong_inputs add column if not exists created_by text references employees (id) on delete set null;
 alter table tong_inputs add column if not exists created_by_name text;
+-- 입력 소프트 삭제(복구 가능). null = 활성, 값 있으면 삭제됨(목록·AI 요약에서 제외)
+alter table tong_inputs add column if not exists deleted_at timestamptz;
