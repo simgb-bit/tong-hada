@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useData } from '@/store/DataContext'
-import { Card, Badge, ConfirmModal } from '@/components/ui'
+import { useCurrentUser } from '@/store/CurrentUserContext'
+import { useRecordingLock, type RecordingLock } from '@/lib/useRecordingLock'
+import { Card, Badge, ConfirmModal, Modal } from '@/components/ui'
 import { TeamsIcon, TextIcon, MemoIcon, MicIcon, FileIcon, StopIcon, TrashIcon } from '@/components/icons'
 import { cn, formatDateTime, formatDate, formatFileSize } from '@/lib/utils'
 import { uid } from '@/lib/db'
@@ -26,9 +28,11 @@ const TYPE_LABEL: Record<TongInputType, string> = {
   audio: '음성(STT)',
 }
 
-export function InputTab({ tong }: { tong: Tong }) {
+export function InputTab({ tong, readOnly = false }: { tong: Tong; readOnly?: boolean }) {
   const { inputs, attachments, addInput, addAttachment } = useData()
+  const { currentUser } = useCurrentUser()
   const [method, setMethod] = useState<TongInputType>('teams')
+  const [detail, setDetail] = useState<TongInput | null>(null) // 입력 상세 보기
 
   const tongInputs = useMemo(
     () => inputs.filter((i) => i.tong_id === tong.id).sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at)),
@@ -43,6 +47,8 @@ export function InputTab({ tong }: { tong: Tong }) {
       tong_id: tong.id,
       input_type: type,
       content: content.trim(),
+      created_by: currentUser?.id ?? null,
+      created_by_name: currentUser?.name ?? null,
       created_at: new Date().toISOString(),
     }
     await addInput(input)
@@ -51,29 +57,38 @@ export function InputTab({ tong }: { tong: Tong }) {
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <div className="space-y-6 lg:col-span-2">
-        {/* 입력 방식 선택 */}
-        <Card>
-          <div className="mb-4 flex flex-wrap gap-2">
-            {METHODS.map((m) => (
-              <button
-                key={m.key}
-                onClick={() => setMethod(m.key)}
-                className={cn(
-                  'flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
-                  method === m.key ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50',
-                )}
-              >
-                {m.icon}
-                {m.label}
-              </button>
-            ))}
-          </div>
+        {readOnly ? (
+          <Card>
+            <p className="py-8 text-center text-sm text-gray-400">
+              보기 권한입니다. 이 통에는 입력·녹음할 수 없습니다.
+              <br />입력이 필요하면 진행자에게 편집 권한을 요청하세요.
+            </p>
+          </Card>
+        ) : (
+          /* 입력 방식 선택 */
+          <Card>
+            <div className="mb-4 flex flex-wrap gap-2">
+              {METHODS.map((m) => (
+                <button
+                  key={m.key}
+                  onClick={() => setMethod(m.key)}
+                  className={cn(
+                    'flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+                    method === m.key ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50',
+                  )}
+                >
+                  {m.icon}
+                  {m.label}
+                </button>
+              ))}
+            </div>
 
-          {method === 'teams' && <TeamsInput tong={tong} onSave={(c) => saveInput('teams', c)} />}
-          {method === 'text' && <TextInput onSave={(c) => saveInput('text', c)} placeholder="회의 내용을 직접 입력하세요." label="텍스트 입력" />}
-          {method === 'memo' && <TextInput onSave={(c) => saveInput('memo', c)} placeholder="회의 중 작성한 자유 메모를 입력하세요." label="메모 입력" />}
-          {method === 'audio' && <AudioInput tong={tong} onTranscribed={(c) => saveInput('audio', c)} onAttach={addAttachment} />}
-        </Card>
+            {method === 'teams' && <TeamsInput tong={tong} onSave={(c) => saveInput('teams', c)} />}
+            {method === 'text' && <TextInput onSave={(c) => saveInput('text', c)} placeholder="회의 내용을 직접 입력하세요." label="텍스트 입력" />}
+            {method === 'memo' && <TextInput onSave={(c) => saveInput('memo', c)} placeholder="회의 중 작성한 자유 메모를 입력하세요." label="메모 입력" />}
+            {method === 'audio' && <AudioInput tong={tong} onTranscribed={(c) => saveInput('audio', c)} onAttach={addAttachment} />}
+          </Card>
+        )}
       </div>
 
       {/* 입력 기록 목록 */}
@@ -85,12 +100,22 @@ export function InputTab({ tong }: { tong: Tong }) {
           ) : (
             <ul className="space-y-3">
               {tongInputs.map((i) => (
-                <li key={i.id} className="rounded-xl border border-gray-100 p-3">
-                  <div className="mb-1 flex items-center justify-between">
-                    <Badge className="bg-brand-50 text-brand-700">{TYPE_LABEL[i.input_type]}</Badge>
-                    <span className="text-xs text-gray-400">{formatDateTime(i.created_at)}</span>
-                  </div>
-                  <p className="line-clamp-4 whitespace-pre-wrap text-xs text-gray-600">{i.content}</p>
+                <li key={i.id}>
+                  <button
+                    type="button"
+                    onClick={() => setDetail(i)}
+                    className="w-full rounded-xl border border-gray-100 p-3 text-left transition-colors hover:bg-gray-50"
+                  >
+                    <div className="mb-1 flex items-center justify-between">
+                      <Badge className="bg-brand-50 text-brand-700">{TYPE_LABEL[i.input_type]}</Badge>
+                      <span className="text-xs text-gray-400">{formatDateTime(i.created_at)}</span>
+                    </div>
+                    <p className="mb-1 text-xs text-gray-500">
+                      작성자: <span className="font-medium text-gray-700">{i.created_by_name ?? '미상'}</span>
+                    </p>
+                    <p className="line-clamp-3 whitespace-pre-wrap text-xs text-gray-600">{i.content}</p>
+                    <p className="mt-1.5 text-xs font-medium text-brand-600">자세히 보기 →</p>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -102,18 +127,35 @@ export function InputTab({ tong }: { tong: Tong }) {
             <h3 className="mb-3 font-semibold text-gray-900">첨부 파일</h3>
             <ul className="space-y-2">
               {tongAttachments.map((a) => (
-                <AttachmentRow key={a.id} att={a} />
+                <AttachmentRow key={a.id} att={a} readOnly={readOnly} />
               ))}
             </ul>
           </Card>
         )}
       </div>
+
+      {/* 입력 상세 보기 */}
+      <Modal open={detail !== null} onClose={() => setDetail(null)} title="입력 상세">
+        {detail && (
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+              <Badge className="bg-brand-50 text-brand-700">{TYPE_LABEL[detail.input_type]}</Badge>
+              <span>작성자: <span className="font-medium text-gray-700">{detail.created_by_name ?? '미상'}</span></span>
+              <span>·</span>
+              <span>{formatDateTime(detail.created_at)}</span>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap rounded-xl bg-gray-50 p-4 text-sm leading-relaxed text-gray-700">
+              {detail.content}
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }
 
 // ── 첨부(음원) 행: 재생 / 다운로드 / 삭제 ────────────────────────────────────
-function AttachmentRow({ att }: { att: Attachment }) {
+function AttachmentRow({ att, readOnly = false }: { att: Attachment; readOnly?: boolean }) {
   const { deleteAttachment } = useData()
   const [playUrl, setPlayUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState<null | 'play' | 'download'>(null)
@@ -148,56 +190,77 @@ function AttachmentRow({ att }: { att: Attachment }) {
     }
   }
 
+  // mp3/wav 는 이미 호환 형식 → 그대로 다운로드. webm/ogg(녹음 원본) → 다운로드 시 mp3 변환
+  const needsMp3 = /\.(webm|ogg)$/i.test(att.file_name) || /audio\/(webm|ogg)/i.test(att.mime_type)
+
   async function download() {
     setLoading('download')
     setError(null)
     try {
-      const url = await getRecordingUrl(att.storage_path, 3600, true)
-      if (!url) {
-        setError('다운로드 URL을 가져오지 못했습니다.')
+      if (!needsMp3) {
+        // 이미 mp3/wav → 서명 URL 직접 다운로드
+        const url = await getRecordingUrl(att.storage_path, 3600, true)
+        if (!url) { setError('다운로드 URL을 가져오지 못했습니다.'); return }
+        triggerDownload(url, att.file_name)
         return
       }
-      const a = document.createElement('a')
-      a.href = url
-      a.download = att.file_name
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
+      // 녹음 원본(webm) → 내려받아 mp3로 변환 후 다운로드
+      const url = await getRecordingUrl(att.storage_path)
+      if (!url) { setError('다운로드 URL을 가져오지 못했습니다.'); return }
+      const res = await fetch(url)
+      const blob = await res.blob()
+      const src = new File([blob], att.file_name, { type: blob.type || 'audio/webm' })
+      const mp3 = await convertToMp3(src)
+      const objUrl = URL.createObjectURL(mp3)
+      triggerDownload(objUrl, mp3.name)
+      URL.revokeObjectURL(objUrl)
+    } catch (e) {
+      setError(e instanceof Error ? `다운로드 실패: ${e.message}` : '다운로드에 실패했습니다.')
     } finally {
       setLoading(null)
     }
   }
 
+  // 저장된 원본 형식 (예: WEBM/MP3/WAV) — 파일명이 잘려도 형식 확인 가능
+  const format = (att.file_name.match(/\.([a-z0-9]+)$/i)?.[1] ?? att.mime_type.split('/')[1] ?? '').toUpperCase()
+
   return (
     <li className="rounded-lg border border-gray-100 p-2 text-sm">
+      {/* 파일명: 카드 전체 폭을 쓰는 한 줄 (길면 가로 스크롤) */}
       <div className="flex items-center gap-2">
         <FileIcon className="h-4 w-4 shrink-0 text-gray-400" />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-gray-700">{att.file_name}</p>
+        <p className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap text-gray-700" title={att.file_name}>{att.file_name}</p>
+      </div>
+      {/* 메타(형식·크기·만료) + 동작 버튼 */}
+      <div className="mt-1.5 flex items-center justify-between gap-2">
+        <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-gray-400">
+          {format && <span className="rounded bg-gray-100 px-1 py-0.5 font-medium text-gray-500">{format}</span>}
+          <span>{formatFileSize(att.file_size)}</span>
           {stored
-            ? att.expires_at && <p className="text-xs text-gray-400">{formatDate(att.expires_at)} 자동 삭제 예정</p>
-            : <p className="text-xs text-gray-400">{att.expires_at ? '음원 만료(삭제됨)' : '음원 미보관'}</p>}
-        </div>
-        <span className="shrink-0 text-xs text-gray-400">{formatFileSize(att.file_size)}</span>
+            ? att.expires_at && <span>· {formatDate(att.expires_at)} 자동 삭제 예정</span>
+            : <span>· {att.expires_at ? '음원 만료(삭제됨)' : '음원 미보관'}</span>}
+        </p>
         <div className="flex shrink-0 items-center gap-1">
           {stored && (
             <>
               <button className="btn-ghost px-2 py-1 text-xs" onClick={play} disabled={loading !== null || deleting}>
                 {loading === 'play' ? '여는 중…' : '재생'}
               </button>
-              <button className="btn-ghost px-2 py-1 text-xs" onClick={download} disabled={loading !== null || deleting}>
-                {loading === 'download' ? '받는 중…' : '다운로드'}
+              <button className="btn-ghost px-2 py-1 text-xs" onClick={download} disabled={loading !== null || deleting} title={needsMp3 ? 'MP3로 변환하여 다운로드' : '다운로드'}>
+                {loading === 'download' ? (needsMp3 ? 'MP3 변환 중…' : '받는 중…') : needsMp3 ? 'MP3 다운로드' : '다운로드'}
               </button>
             </>
           )}
-          <button
-            className="btn-ghost px-2 py-1 text-xs text-gray-400 hover:text-red-500"
-            onClick={() => setConfirmOpen(true)}
-            disabled={deleting}
-            title="첨부 삭제"
-          >
-            <TrashIcon className="h-3.5 w-3.5" />
-          </button>
+          {!readOnly && (
+            <button
+              className="btn-ghost px-2 py-1 text-xs text-gray-400 hover:text-red-500"
+              onClick={() => setConfirmOpen(true)}
+              disabled={deleting}
+              title="첨부 삭제"
+            >
+              <TrashIcon className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
       </div>
       {playUrl && (
@@ -289,6 +352,8 @@ function TextInput({ onSave, placeholder, label }: { onSave: (c: string) => Prom
 // ── 음성 (마이크 녹음 / 파일 업로드) ─────────────────────────────────────────
 function AudioInput({ tong, onTranscribed, onAttach }: { tong: Tong; onTranscribed: (c: string) => Promise<void>; onAttach: (a: Attachment) => Promise<void> }) {
   const [sub, setSub] = useState<'record' | 'upload'>('record')
+  const { currentUser } = useCurrentUser()
+  const lock = useRecordingLock(tong.id, currentUser?.id ?? '', currentUser?.name ?? '익명')
 
   // 음원 자동 저장: Storage 업로드 → 첨부 메타 저장 (녹음/선택 즉시 실행 → 유실 방지)
   async function saveAudio(file: File): Promise<void> {
@@ -322,7 +387,7 @@ function AudioInput({ tong, onTranscribed, onAttach }: { tong: Tong; onTranscrib
         <SubTab active={sub === 'record'} onClick={() => setSub('record')} icon={<MicIcon className="h-4 w-4" />} label="마이크 녹음" />
         <SubTab active={sub === 'upload'} onClick={() => setSub('upload')} icon={<FileIcon className="h-4 w-4" />} label="파일 업로드" />
       </div>
-      {sub === 'record' ? <MicRecorder onSaveAudio={saveAudio} onStt={runStt} /> : <AudioUpload onSaveAudio={saveAudio} onStt={runStt} />}
+      {sub === 'record' ? <MicRecorder onSaveAudio={saveAudio} onStt={runStt} lock={lock} /> : <AudioUpload onSaveAudio={saveAudio} onStt={runStt} />}
     </div>
   )
 }
@@ -343,14 +408,13 @@ function SubTab({ active, onClick, icon, label }: { active: boolean; onClick: ()
 }
 
 // ── 마이크 녹음 (MediaRecorder) ──────────────────────────────────────────────
-function MicRecorder({ onSaveAudio, onStt }: { onSaveAudio: (file: File) => Promise<void>; onStt: (file: File) => Promise<string> }) {
+function MicRecorder({ onSaveAudio, onStt, lock }: { onSaveAudio: (file: File) => Promise<void>; onStt: (file: File) => Promise<string>; lock: RecordingLock }) {
   const [recording, setRecording] = useState(false)
   const [seconds, setSeconds] = useState(0)
   const [recordedFile, setRecordedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [level, setLevel] = useState(0) // 입력 레벨 0~100
   const [silent, setSilent] = useState(false) // 녹음 중 소리가 거의 감지되지 않음
-  const [converting, setConverting] = useState(false) // webm → mp3 변환 중
   const [saving, setSaving] = useState(false) // 자동 저장(업로드) 중
   const [saved, setSaved] = useState(false) // 자동 저장 완료
   const [error, setError] = useState<string | null>(null)
@@ -465,18 +529,8 @@ function MicRecorder({ onSaveAudio, onStt }: { onSaveAudio: (file: File) => Prom
     return () => URL.revokeObjectURL(url)
   }, [recordedFile])
 
-  // 변환(webm→mp3) 후 자동 저장
-  async function finalize(rawFile: File) {
-    setConverting(true)
-    let file = rawFile
-    try {
-      file = await convertToMp3(rawFile)
-    } catch (e) {
-      console.warn('[mp3] 변환 실패 — 원본 유지:', e)
-      setError('mp3 변환에 실패해 원본(webm) 형식으로 저장됩니다.')
-    } finally {
-      setConverting(false)
-    }
+  // 자동 저장 (원본 webm/Opus 그대로 저장 — 가장 작은 용량. MP3 변환은 다운로드 시에만)
+  async function finalize(file: File) {
     setRecordedFile(file)
     setSaving(true)
     try {
@@ -497,6 +551,10 @@ function MicRecorder({ onSaveAudio, onStt }: { onSaveAudio: (file: File) => Prom
     setSaved(false)
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
       setError('이 브라우저는 마이크 녹음을 지원하지 않습니다. (HTTPS 환경의 Chrome/Edge 권장)')
+      return
+    }
+    if (lock.lockedByOther) {
+      setError(`${lock.lockedByName ?? '다른 사용자'}님이 이 통을 녹음 중입니다. 종료된 뒤 시작할 수 있습니다.`)
       return
     }
     try {
@@ -526,6 +584,7 @@ function MicRecorder({ onSaveAudio, onStt }: { onSaveAudio: (file: File) => Prom
       }
       recorder.start(1000) // 1초 간격으로 데이터 수집(안정성)
       recorderRef.current = recorder
+      void lock.acquire() // 다른 사용자에게 '녹음 중' 알림(실시간 잠금)
       setRecording(true)
       setSeconds(0)
       timerRef.current = window.setInterval(() => setSeconds((s) => s + 1), 1000)
@@ -542,6 +601,7 @@ function MicRecorder({ onSaveAudio, onStt }: { onSaveAudio: (file: File) => Prom
     clearTimer()
     setRecording(false)
     recorderRef.current?.stop()
+    void lock.release() // 녹음 종료 → 잠금 해제
   }
 
   async function transcribe() {
@@ -580,14 +640,21 @@ function MicRecorder({ onSaveAudio, onStt }: { onSaveAudio: (file: File) => Prom
           </button>
         </div>
       </div>
+
+      {/* 실시간 녹음 잠금: 다른 사용자가 녹음 중일 때 */}
+      {lock.lockedByOther && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-red-500" />
+          현재 <span className="font-semibold">{lock.lockedByName}</span>님이 이 통을 녹음 중입니다. 종료된 뒤 녹음할 수 있습니다.
+        </div>
+      )}
+
       <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 py-8 text-center">
         <div className={cn('mb-3 flex h-16 w-16 items-center justify-center rounded-full', recording ? 'animate-pulse bg-red-50 text-red-500' : 'bg-gray-50 text-gray-400')}>
           <MicIcon className="h-7 w-7" />
         </div>
         {recording ? (
           <p className="text-sm font-medium text-red-500">녹음 중… {formatElapsed(seconds)}</p>
-        ) : converting ? (
-          <p className="text-sm text-gray-500">mp3 변환 중…</p>
         ) : saving ? (
           <p className="text-sm text-gray-500">저장 중…</p>
         ) : recordedFile ? (
@@ -617,7 +684,7 @@ function MicRecorder({ onSaveAudio, onStt }: { onSaveAudio: (file: File) => Prom
               <StopIcon className="h-4 w-4" />녹음 종료
             </button>
           ) : (
-            <button className="btn-primary" onClick={start} disabled={transcribing || converting}>
+            <button className="btn-primary" onClick={start} disabled={transcribing || lock.lockedByOther}>
               <MicIcon className="h-4 w-4" />{recordedFile ? '다시 녹음' : '녹음 시작'}
             </button>
           )}
@@ -644,7 +711,7 @@ function MicRecorder({ onSaveAudio, onStt }: { onSaveAudio: (file: File) => Prom
       )}
 
       {/* 자동 저장 안내 + 선택적 텍스트 변환 */}
-      {recordedFile && !recording && !converting && (
+      {recordedFile && !recording && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs text-gray-500">
             {saving ? '저장 중…' : saved ? '✓ 자동 저장됨 — 아래 첨부 목록에서 확인·삭제할 수 있습니다.' : ''}
@@ -738,6 +805,16 @@ function AudioUpload({ onSaveAudio, onStt }: { onSaveAudio: (file: File) => Prom
       )}
     </div>
   )
+}
+
+// 앵커를 만들어 파일 다운로드 트리거
+function triggerDownload(href: string, fileName: string) {
+  const a = document.createElement('a')
+  a.href = href
+  a.download = fileName
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
 }
 
 // 녹음 경과 시간 mm:ss

@@ -6,6 +6,7 @@ import { useData } from '@/store/DataContext'
 import { useCurrentUser } from '@/store/CurrentUserContext'
 import { PageHeader, Badge, ConfirmModal } from '@/components/ui'
 import { cn, formatDateTime, tongStatusColor, tongTypeBadgeClass } from '@/lib/utils'
+import { canEditTong } from '@/lib/auth'
 import { TrashIcon, ShareIcon } from '@/components/icons'
 import { FolderPicker } from '@/components/FolderPicker'
 import { myFolders, folderIdsOfTong } from '@/lib/selectors'
@@ -31,6 +32,8 @@ export function TongDetail() {
   const shareCount = useMemo(() => shares.filter((s) => s.tong_id === id).length, [shares, id])
 
   const userId = currentUser?.id ?? ''
+  // 편집 권한: 진행자(생성자) 또는 편집 공유받은 사람만. 그 외(보기 권한 등)는 읽기 전용
+  const canEdit = useMemo(() => (tong ? canEditTong(tong, userId, shares) : false), [tong, userId, shares])
   const folders = useMemo(() => myFolders(data, userId), [data, userId])
   const ownerFolderIdSet = useMemo(() => new Set(folders.map((f) => f.id)), [folders])
   const tongFolderIds = useMemo(() => (id ? folderIdsOfTong(data, id, ownerFolderIdSet) : []), [data, id, ownerFolderIdSet])
@@ -65,14 +68,18 @@ export function TongDetail() {
         title={tong.title}
         subtitle={`${tong.org_name} · ${formatDateTime(tong.scheduled_at)}`}
         actions={
-          <>
-            <button className="btn-secondary" onClick={() => setShareOpen(true)}>
-              <ShareIcon className="h-4 w-4" />공유{shareCount > 0 ? ` ${shareCount}` : ''}
-            </button>
-            <button className="btn-ghost text-red-500 hover:bg-red-50" onClick={() => setDeleteOpen(true)}>
-              <TrashIcon className="h-4 w-4" />삭제
-            </button>
-          </>
+          canEdit ? (
+            <>
+              <button className="btn-secondary" onClick={() => setShareOpen(true)}>
+                <ShareIcon className="h-4 w-4" />공유{shareCount > 0 ? ` ${shareCount}` : ''}
+              </button>
+              <button className="btn-ghost text-red-500 hover:bg-red-50" onClick={() => setDeleteOpen(true)}>
+                <TrashIcon className="h-4 w-4" />삭제
+              </button>
+            </>
+          ) : (
+            <Badge className="bg-gray-100 text-gray-500">읽기 전용 (보기 권한)</Badge>
+          )
         }
       />
 
@@ -104,9 +111,9 @@ export function TongDetail() {
         ))}
       </div>
 
-      {tab === '기본 정보' && <BasicInfoTab tong={tong} />}
-      {tab === '입력' && <InputTab tong={tong} />}
-      {tab === 'AI 요약' && <SummaryTab tong={tong} onGoToInput={() => setTab('입력')} />}
+      {tab === '기본 정보' && <BasicInfoTab tong={tong} readOnly={!canEdit} />}
+      {tab === '입력' && <InputTab tong={tong} readOnly={!canEdit} />}
+      {tab === 'AI 요약' && <SummaryTab tong={tong} onGoToInput={() => setTab('입력')} readOnly={!canEdit} />}
 
       <ShareTongModal tong={tong} open={shareOpen} onClose={() => setShareOpen(false)} />
 

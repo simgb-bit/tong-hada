@@ -37,14 +37,14 @@ function attendeeLabel(user: Pick<Employee, 'name' | 'org_name'>): string {
   return `${user.name} (${user.org_name})`
 }
 
-/** 내가 관여한 통 (내가 진행했거나 참석자로 포함된 통) */
+/** 내 통: 내가 진행(생성)했거나 참석자로 포함된 통 (휴지통 제외) */
 export function myTongs(data: FullDataset, user: Employee | null): Tong[] {
   if (!user) return []
   const label = attendeeLabel(user)
-  return data.tongs.filter((t) => t.created_by === user.id || t.participants.includes(label))
+  return data.tongs.filter((t) => !t.deleted_at && (t.created_by === user.id || t.participants.includes(label)))
 }
 
-/** 나에게 공유된 통 (내가 관여한 통은 제외) */
+/** 공유받은 통: 나에게 공유된 통 (내가 진행·참석한 통은 제외, 휴지통 제외) */
 export function sharedWithMeTongs(data: FullDataset, user: Employee | null): Tong[] {
   if (!user) return []
   const sharedIds = new Set(
@@ -52,8 +52,17 @@ export function sharedWithMeTongs(data: FullDataset, user: Employee | null): Ton
   )
   const label = attendeeLabel(user)
   return data.tongs.filter(
-    (t) => sharedIds.has(t.id) && t.created_by !== user.id && !t.participants.includes(label),
+    (t) => !t.deleted_at && sharedIds.has(t.id) && t.created_by !== user.id && !t.participants.includes(label),
   )
+}
+
+/** 전체(내가 관여한 통): 내 통 ∪ 공유받은 통 — "전체" 스마트 폴더 (전 조직 공개 아님) */
+export function involvedTongs(data: FullDataset, user: Employee | null): Tong[] {
+  if (!user) return []
+  const mine = myTongs(data, user)
+  const shared = sharedWithMeTongs(data, user)
+  const seen = new Set(mine.map((t) => t.id))
+  return [...mine, ...shared.filter((t) => !seen.has(t.id))]
 }
 
 /** 현재 사용자가 소유한 폴더 (정렬순) */

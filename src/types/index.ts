@@ -122,6 +122,10 @@ export interface TongInput {
   input_type: TongInputType
   /** 입력 본문 (녹취 텍스트, 직접 입력, 메모, STT 변환 결과) */
   content: string
+  /** 작성자 사원 id (구버전 데이터는 없을 수 있음) */
+  created_by?: string | null
+  /** 작성자 이름 (조회 편의용 비정규화) */
+  created_by_name?: string | null
   created_at: string
 }
 

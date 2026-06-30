@@ -3,7 +3,7 @@
 // 통 유형 커스텀은 Core 단위로 관리하며, 권한은 "Core 리더 이상" 직책에만 부여합니다.
 // 현재는 페르소나(사용자 선택) 기반으로 동작하며, 추후 Teams(Entra ID) 로그인으로 교체됩니다.
 
-import type { Employee, Organization } from '@/types'
+import type { Employee, Organization, Tong, TongShare } from '@/types'
 
 /** 리더 직책 → 등급 (숫자가 클수록 상위) */
 const LEADER_RANK: Record<string, number> = {
@@ -37,4 +37,16 @@ export function canManageTongTypes(user: Employee | null, orgs: Organization[]):
   if (!user) return false
   if (positionRank(user.position) < CORE_LEADER_RANK) return false
   return getCoreOrgId(orgs, user.org_id) !== null
+}
+
+/**
+ * 통을 편집(입력/수정/삭제)할 수 있는지 판정한다.
+ *  - 진행자(생성자) 이거나
+ *  - 편집(edit) 권한으로 공유받은 사람
+ * 그 외(보기 권한 공유, 단순 조회자)는 읽기 전용이다.
+ */
+export function canEditTong(tong: Tong, userId: string, shares: TongShare[]): boolean {
+  if (!userId) return false
+  if (tong.created_by === userId) return true
+  return shares.some((s) => s.tong_id === tong.id && s.shared_with === userId && s.permission === 'edit')
 }
