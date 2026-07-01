@@ -13,6 +13,7 @@ import {
   XIcon,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
 } from '@/components/icons'
 import type { ReactNode } from 'react'
 
@@ -41,7 +42,10 @@ interface SidebarProps {
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { canManageTongTypes } = useCurrentUser()
   const [collapsed, setCollapsed] = useState(false)
+  const [recordsOpen, setRecordsOpen] = useState(true) // '통 기록함' 섹션(폴더 내비) 펼침 여부
   const bottomItems = canManageTongTypes ? [analyticsItem, settingsItem] : [analyticsItem]
+  const newItem = topItems[0]
+  const tongsItem = topItems[1]
 
   function renderItem(item: NavItem) {
     return (
@@ -120,16 +124,32 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           </button>
         </div>
 
-        {/* 상단 고정: 새 통 만들기 · 통 기록함 */}
+        {/* 상단 고정: 새 통 만들기 · 통 기록함(섹션 토글) */}
         <nav className={cn('shrink-0 space-y-1 pt-2', collapsed ? 'md:px-2 px-3' : 'px-3')}>
-          {topItems.map(renderItem)}
+          {renderItem(newItem)}
+          <div className="flex items-center gap-0.5">
+            <div className="min-w-0 flex-1">{renderItem(tongsItem)}</div>
+            {/* 통 기록함 섹션 접기/펼치기 (접힘 미니모드에선 숨김) */}
+            {!collapsed && (
+              <button
+                onClick={() => setRecordsOpen((o) => !o)}
+                className="shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                title={recordsOpen ? '통 기록함 접기' : '통 기록함 펼치기'}
+                aria-expanded={recordsOpen}
+              >
+                {recordsOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </button>
+            )}
+          </div>
         </nav>
 
-        {/* 중앙 스크롤: 폴더 트리 (길어지면 이 구역만 스크롤). 접힘 시 내용만 숨기고 여백은 유지해 하단 메뉴 고정 */}
+        {/* 중앙 스크롤: 폴더 트리 — 통 기록함 하위로 들여쓰기(가이드선). 접혀도 여백 유지해 하단 메뉴 고정 */}
         <div className="min-h-0 flex-1 overflow-y-auto px-3 py-1">
-          <div className={cn(collapsed && 'md:hidden')}>
-            <FolderNav onNavigate={onClose} />
-          </div>
+          {recordsOpen && (
+            <div className={cn('ml-3 border-l border-gray-100 pl-1', collapsed && 'md:hidden')}>
+              <FolderNav onNavigate={onClose} />
+            </div>
+          )}
         </div>
 
         {/* 하단 고정: 분석 · 설정 */}
