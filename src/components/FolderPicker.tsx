@@ -6,6 +6,7 @@
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { FolderIcon, FolderPlusIcon } from '@/components/icons'
+import { childFolders } from '@/lib/selectors'
 import type { Folder } from '@/types'
 
 export function FolderPicker({
@@ -22,6 +23,30 @@ export function FolderPicker({
 }) {
   const [open, setOpen] = useState(false)
   const selected = new Set(selectedIds)
+
+  // 하위 폴더까지 들여쓰기 트리로 렌더
+  function renderNodes(parentId: string | null, depth: number) {
+    return childFolders(folders, parentId).map((f) => {
+      const isIn = selected.has(f.id)
+      return (
+        <div key={f.id}>
+          <button
+            type="button"
+            onClick={() => onToggle(f.id, isIn)}
+            className="flex w-full items-center gap-2 py-2 pr-3 text-left text-sm text-gray-700 hover:bg-gray-50"
+            style={{ paddingLeft: 12 + depth * 14 }}
+          >
+            <span className={cn('flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] text-white', isIn ? 'border-brand-500 bg-brand-500' : 'border-gray-300')}>
+              {isIn ? '✓' : ''}
+            </span>
+            <FolderIcon className="h-4 w-4 shrink-0 text-gray-400" />
+            <span className="flex-1 truncate">{f.name}</span>
+          </button>
+          {renderNodes(f.id, depth + 1)}
+        </div>
+      )
+    })
+  }
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
@@ -45,23 +70,7 @@ export function FolderPicker({
               {folders.length === 0 ? (
                 <p className="px-3 py-2 text-xs text-gray-400">{emptyHint}</p>
               ) : (
-                folders.map((f) => {
-                  const isIn = selected.has(f.id)
-                  return (
-                    <button
-                      key={f.id}
-                      type="button"
-                      onClick={() => onToggle(f.id, isIn)}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-                    >
-                      <span className={cn('flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] text-white', isIn ? 'border-brand-500 bg-brand-500' : 'border-gray-300')}>
-                        {isIn ? '✓' : ''}
-                      </span>
-                      <FolderIcon className="h-4 w-4 text-gray-400" />
-                      <span className="flex-1 truncate">{f.name}</span>
-                    </button>
-                  )
-                })
+                renderNodes(null, 0)
               )}
             </div>
           </>

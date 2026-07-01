@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { NavLink, Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { useCurrentUser } from '@/store/CurrentUserContext'
+import { FolderNav } from '@/components/FolderNav'
 import {
   PlusIcon,
   ArchiveIcon,
@@ -22,12 +23,14 @@ interface NavItem {
   end?: boolean
 }
 
-const items: NavItem[] = [
+// 상단 고정: 새 통 만들기 · 통 기록함(하위에 폴더 트리)
+const topItems: NavItem[] = [
   { to: '/new', label: '새 통 만들기', icon: <PlusIcon /> },
   { to: '/tongs', label: '통 기록함', icon: <ArchiveIcon /> },
-  { to: '/analytics', label: '분석', icon: <ChartIcon /> },
 ]
 
+// 하단 고정: 분석 · 설정 (사용 빈도 낮아 최하단 배치)
+const analyticsItem: NavItem = { to: '/analytics', label: '분석', icon: <ChartIcon /> }
 const settingsItem: NavItem = { to: '/settings', label: '설정', icon: <SettingsIcon /> }
 
 interface SidebarProps {
@@ -38,7 +41,33 @@ interface SidebarProps {
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { canManageTongTypes } = useCurrentUser()
   const [collapsed, setCollapsed] = useState(false)
-  const navItems = canManageTongTypes ? [...items, settingsItem] : items
+  const bottomItems = canManageTongTypes ? [analyticsItem, settingsItem] : [analyticsItem]
+
+  function renderItem(item: NavItem) {
+    return (
+      <NavLink
+        key={item.to}
+        to={item.to}
+        end={item.end}
+        onClick={onClose}
+        className={({ isActive }) =>
+          cn(
+            'group/item relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
+            collapsed && 'md:justify-center md:px-2',
+            isActive ? 'bg-brand-50 text-brand-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+          )
+        }
+      >
+        <span className="shrink-0">{item.icon}</span>
+        <span className={cn(collapsed && 'md:hidden')}>{item.label}</span>
+        {collapsed && (
+          <span className="pointer-events-none absolute left-full ml-3 z-50 hidden whitespace-nowrap rounded-lg bg-gray-800 px-2.5 py-1.5 text-xs text-white opacity-0 transition-opacity group-hover/item:opacity-100 md:block">
+            {item.label}
+          </span>
+        )}
+      </NavLink>
+    )
+  }
 
   return (
     <>
@@ -91,42 +120,25 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           </button>
         </div>
 
-        {/* 메뉴 */}
-        <nav className={cn(
-          'flex-1 min-h-0 space-y-1 py-2',
-          collapsed ? 'md:overflow-visible md:px-2 overflow-y-auto px-3' : 'overflow-y-auto px-3',
-        )}>
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              onClick={onClose}
-              className={({ isActive }) =>
-                cn(
-                  'group/item relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
-                  collapsed && 'md:justify-center md:px-2',
-                  isActive
-                    ? 'bg-brand-50 text-brand-700'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
-                )
-              }
-            >
-              <span className="shrink-0">{item.icon}</span>
-              <span className={cn(collapsed && 'md:hidden')}>{item.label}</span>
+        {/* 상단 고정: 새 통 만들기 · 통 기록함 */}
+        <nav className={cn('shrink-0 space-y-1 pt-2', collapsed ? 'md:px-2 px-3' : 'px-3')}>
+          {topItems.map(renderItem)}
+        </nav>
 
-              {/* 툴팁: 접힘 + 데스크탑 전용 */}
-              {collapsed && (
-                <span className="pointer-events-none absolute left-full ml-3 z-50 hidden whitespace-nowrap rounded-lg bg-gray-800 px-2.5 py-1.5 text-xs text-white opacity-0 transition-opacity group-hover/item:opacity-100 md:block">
-                  {item.label}
-                </span>
-              )}
-            </NavLink>
-          ))}
+        {/* 중앙 스크롤: 폴더 트리 (길어지면 이 구역만 스크롤). 접힘 시 내용만 숨기고 여백은 유지해 하단 메뉴 고정 */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-1">
+          <div className={cn(collapsed && 'md:hidden')}>
+            <FolderNav onNavigate={onClose} />
+          </div>
+        </div>
+
+        {/* 하단 고정: 분석 · 설정 */}
+        <nav className={cn('shrink-0 space-y-1 border-t border-gray-100 py-2', collapsed ? 'md:px-2 px-3' : 'px-3')}>
+          {bottomItems.map(renderItem)}
         </nav>
 
         {/* 하단 설명: 접혔을 때 숨김 */}
-        <div className={cn('border-t border-gray-100 px-6 py-4', collapsed && 'md:hidden')}>
+        <div className={cn('shrink-0 border-t border-gray-100 px-6 py-4', collapsed && 'md:hidden')}>
           <p className="text-xs leading-relaxed text-gray-400">
             회의(통) 문화를 표준화하고
             <br />조직 운영 데이터로 축적합니다.

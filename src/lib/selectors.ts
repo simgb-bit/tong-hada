@@ -72,6 +72,29 @@ export function myFolders(data: FullDataset, userId: string): Folder[] {
     .sort((a, b) => a.sort_order - b.sort_order)
 }
 
+/** 특정 부모(parentId; null=최상위)의 직속 하위 폴더 (정렬순) */
+export function childFolders(folders: Folder[], parentId: string | null): Folder[] {
+  return folders
+    .filter((f) => (f.parent_id ?? null) === parentId)
+    .sort((a, b) => a.sort_order - b.sort_order)
+}
+
+/** 특정 폴더의 모든 하위 폴더 id (자기 자신 포함) — 삭제 시 하위까지 정리용 */
+export function folderDescendantIds(folders: Folder[], rootId: string): Set<string> {
+  const result = new Set<string>([rootId])
+  let changed = true
+  while (changed) {
+    changed = false
+    for (const f of folders) {
+      if (f.parent_id && result.has(f.parent_id) && !result.has(f.id)) {
+        result.add(f.id)
+        changed = true
+      }
+    }
+  }
+  return result
+}
+
 /** 특정 폴더에 담긴 통 */
 export function tongsInFolder(data: FullDataset, folderId: string): Tong[] {
   const tongIds = new Set(

@@ -250,11 +250,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const deleteFolder = useCallback(async (id: string) => {
     await repo.deleteFolder(id)
-    setData((d) => ({
-      ...d,
-      folders: d.folders.filter((f) => f.id !== id),
-      folderItems: d.folderItems.filter((x) => x.folder_id !== id),
-    }))
+    setData((d) => {
+      // 하위 폴더까지 재귀적으로 제거 (DB 는 on delete cascade, 화면 상태도 동일하게)
+      const ids = new Set<string>([id])
+      let changed = true
+      while (changed) {
+        changed = false
+        for (const f of d.folders) {
+          if (f.parent_id && ids.has(f.parent_id) && !ids.has(f.id)) {
+            ids.add(f.id)
+            changed = true
+          }
+        }
+      }
+      return {
+        ...d,
+        folders: d.folders.filter((f) => !ids.has(f.id)),
+        folderItems: d.folderItems.filter((x) => !ids.has(x.folder_id)),
+      }
+    })
   }, [])
 
   const addTongToFolder = useCallback(async (folderId: string, tongId: string) => {
