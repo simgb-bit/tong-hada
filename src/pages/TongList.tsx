@@ -1,25 +1,20 @@
 // 통 HADA - 통 기록함 (스마트 폴더 + 개인 폴더, 다중 분류)
 
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useData } from '@/store/DataContext'
 import { useCurrentUser } from '@/store/CurrentUserContext'
-import { PageHeader, Card, Badge, EmptyState, Modal } from '@/components/ui'
+import { PageHeader, Card, Badge, EmptyState } from '@/components/ui'
 import {
   SearchIcon,
   ArchiveIcon,
   FolderIcon,
-  FolderPlusIcon,
-  UserIcon,
-  ShareIcon,
-  PencilIcon,
   TrashIcon,
   MoreIcon,
 } from '@/components/icons'
 import { cn, formatDateTime, formatDate, tongStatusColor, tongTypeBadgeClass } from '@/lib/utils'
 import { TongCalendar } from '@/components/TongCalendar'
 import { TrashPreviewModal } from '@/pages/tong/TrashPreviewModal'
-import { uid } from '@/lib/db'
 import { trashPurgeAt } from '@/lib/storage'
 import {
   myTongs,
@@ -29,7 +24,7 @@ import {
   tongsInFolder,
   folderIdsOfTong,
 } from '@/lib/selectors'
-import type { Folder, Tong, TongStatus } from '@/types'
+import type { Tong, TongStatus } from '@/types'
 
 type ViewMode = 'list' | 'calendar'
 /** 좌측 패널 선택: 스마트 폴더 키 또는 개인 폴더 id */
@@ -48,7 +43,7 @@ const PAGE_SIZE = 10
 
 export function TongList() {
   const data = useData()
-  const { tongs, trashedTongs, summaries, tongTypes, upsertFolder, deleteFolder, addTongToFolder, removeTongFromFolder, trashTong, restoreTong, deleteTong, emptyTrash } = data
+  const { tongs, trashedTongs, summaries, tongTypes, addTongToFolder, removeTongFromFolder, trashTong, restoreTong, deleteTong, emptyTrash } = data
   const { currentUser } = useCurrentUser()
   const userId = currentUser?.id ?? ''
 
@@ -56,20 +51,19 @@ export function TongList() {
   const [type, setType] = useState<string>('전체')
   const [status, setStatus] = useState<TongStatus | '전체'>('전체')
   const [view, setView] = useState<ViewMode>('list')
-  const [section, setSection] = useState<Section>('all')
   const [page, setPage] = useState(1)
+  // 선택된 폴더/스마트폴더는 사이드바(FolderNav)와 공유하기 위해 URL 쿼리로 관리
+  const [sp] = useSearchParams()
+  const section: Section = sp.get('f') || 'all'
 
-  // 폴더 생성/이름변경 모달
-  const [folderModal, setFolderModal] = useState<{ mode: 'create' | 'rename'; id?: string; name: string } | null>(null)
   // 카드별 "폴더 분류" 메뉴
   const [menuTongId, setMenuTongId] = useState<string | null>(null)
   // 다중 선택
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkMenuOpen, setBulkMenuOpen] = useState(false)
-  // 드래그앤드롭
+  // 드래그(카드) — 드롭 대상은 사이드바 폴더
   const [dragId, setDragId] = useState<string | null>(null)
-  const [dropFolderId, setDropFolderId] = useState<string | null>(null)
   // 휴지통 읽기전용 미리보기
   const [previewTong, setPreviewTong] = useState<Tong | null>(null)
 
@@ -77,12 +71,14 @@ export function TongList() {
   const ownerFolderIds = useMemo(() => folders.map((f) => f.id), [folders])
   const ownerFolderIdSet = useMemo(() => new Set(ownerFolderIds), [ownerFolderIds])
   const folderName = (id: string) => folders.find((f) => f.id === id)?.name ?? ''
+  const sectionLabel =
+    section === 'all' ? '전체' :
+    section === 'mine' ? '내 통' :
+    section === 'shared' ? '공유받은 통' :
+    section === 'trash' ? '휴지통' :
+    (folderName(section) || '폴더')
 
   const involved = useMemo(() => involvedTongs(data, currentUser), [data, currentUser])
-  const allCount = involved.length
-  const mineCount = useMemo(() => myTongs(data, currentUser).length, [data, currentUser])
-  const sharedCount = useMemo(() => sharedWithMeTongs(data, currentUser).length, [data, currentUser])
-  const countInFolder = (id: string) => tongsInFolder(data, id).length
 
   // 선택된 섹션의 기준 통 목록
   const sectionTongs = useMemo(() => {
@@ -145,41 +141,7 @@ export function TongList() {
     window.alert(`${action}에 실패했습니다.\n${msg}\n\nSupabase를 쓰는 경우 supabase/migration_folders.sql 을 먼저 실행했는지 확인하세요.`)
   }
 
-  // ── 폴더 CRUD ────────────────────────────────────────────────────────────────
-  async function submitFolderModal() {
-    if (!folderModal) return
-    const name = folderModal.name.trim()
-    if (!name) return
-    try {
-      if (folderModal.mode === 'create') {
-        const folder: Folder = {
-          id: uid('folder'),
-          owner_id: userId,
-          name,
-          parent_id: null,
-          sort_order: folders.length + 1,
-          created_at: new Date().toISOString(),
-        }
-        await upsertFolder(folder)
-      } else if (folderModal.id) {
-        const existing = folders.find((f) => f.id === folderModal.id)
-        if (existing) await upsertFolder({ ...existing, name })
-      }
-      setFolderModal(null)
-    } catch (e) {
-      reportError(folderModal.mode === 'rename' ? '폴더 이름 변경' : '폴더 생성', e)
-    }
-  }
-
-  async function handleDeleteFolder(f: Folder) {
-    if (!window.confirm(`'${f.name}' 폴더를 삭제할까요? (안의 통은 삭제되지 않고 분류만 해제됩니다)`)) return
-    try {
-      await deleteFolder(f.id)
-      if (section === f.id) setSection('all')
-    } catch (e) {
-      reportError('폴더 삭제', e)
-    }
-  }
+  // 폴더 생성·이름변경·삭제는 좌측 사이드바(FolderNav)에서 처리한다.
 
   // ── 분류 (다중) ──────────────────────────────────────────────────────────────
   async function toggleTongInFolder(tongId: string, folderId: string, isIn: boolean) {
@@ -259,36 +221,11 @@ export function TongList() {
 
   // ── 드래그앤드롭 ─────────────────────────────────────────────────────────────
   function onRowDragStart(e: React.DragEvent, tongId: string) {
-    // 드래그 대상이 선택 목록에 포함되면 선택 전체, 아니면 단일
+    // 드래그 대상이 선택 목록에 포함되면 선택 전체, 아니면 단일. 드롭 대상은 사이드바 폴더.
     const ids = selectedIds.has(tongId) ? [...selectedIds] : [tongId]
     setDragId(tongId)
     e.dataTransfer.setData('text/plain', ids.join(','))
     e.dataTransfer.effectAllowed = 'copy'
-  }
-  function onFolderDrop(e: React.DragEvent, folderId: string) {
-    e.preventDefault()
-    const raw = e.dataTransfer.getData('text/plain')
-    const ids = raw ? raw.split(',').filter(Boolean) : dragId ? [dragId] : []
-    setDropFolderId(null)
-    setDragId(null)
-    if (ids.length) void addTongsToFolder(folderId, ids)
-  }
-
-  // 좌측 패널 스마트 항목 버튼
-  function NavItem({ active, onClick, icon, label, count }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string; count?: number }) {
-    return (
-      <button
-        onClick={onClick}
-        className={cn(
-          'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-          active ? 'bg-brand-50 text-brand-700' : 'text-gray-600 hover:bg-gray-50',
-        )}
-      >
-        <span className="shrink-0 text-gray-400">{icon}</span>
-        <span className="flex-1 truncate text-left">{label}</span>
-        {count !== undefined && <span className="shrink-0 text-xs text-gray-400">{count}</span>}
-      </button>
-    )
   }
 
   return (
@@ -314,62 +251,13 @@ export function TongList() {
         }
       />
 
-      <div className="flex flex-col gap-6 lg:flex-row">
-        {/* 좌측 폴더 패널 */}
-        <aside className="lg:w-56 lg:shrink-0">
-          <Card className="lg:sticky lg:top-4">
-            <nav className="space-y-1">
-              <NavItem active={section === 'all'} onClick={() => setSection('all')} icon={<ArchiveIcon className="h-4 w-4" />} label="전체" count={allCount} />
-              <NavItem active={section === 'mine'} onClick={() => setSection('mine')} icon={<UserIcon className="h-4 w-4" />} label="내 통" count={mineCount} />
-              <NavItem active={section === 'shared'} onClick={() => setSection('shared')} icon={<ShareIcon className="h-4 w-4" />} label="공유받은 통" count={sharedCount} />
-              <NavItem active={section === 'trash'} onClick={() => setSection('trash')} icon={<TrashIcon className="h-4 w-4" />} label="휴지통" count={trashedTongs.length} />
-            </nav>
-
-            <div className="my-3 border-t border-gray-100" />
-
-            <div className="mb-1 flex items-center justify-between px-3">
-              <span className="text-xs font-semibold text-gray-400">내 폴더</span>
-              <button onClick={() => setFolderModal({ mode: 'create', name: '' })} className="text-gray-400 hover:text-brand-600" title="새 폴더">
-                <FolderPlusIcon className="h-4 w-4" />
-              </button>
-            </div>
-
-            <nav className="space-y-1">
-              {folders.length === 0 && <p className="px-3 py-1 text-xs text-gray-400">폴더가 없습니다.</p>}
-              {folders.map((f) => (
-                <div
-                  key={f.id}
-                  onDragOver={(e) => { e.preventDefault(); setDropFolderId(f.id) }}
-                  onDragLeave={() => setDropFolderId((id) => (id === f.id ? null : id))}
-                  onDrop={(e) => onFolderDrop(e, f.id)}
-                  className={cn(
-                    'group flex items-center gap-1 rounded-lg pr-1 transition-colors',
-                    dropFolderId === f.id ? 'ring-2 ring-brand-400 ring-offset-1' : '',
-                    section === f.id ? 'bg-brand-50' : 'hover:bg-gray-50',
-                  )}
-                >
-                  <button onClick={() => setSection(f.id)} className={cn('flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-sm font-medium', section === f.id ? 'text-brand-700' : 'text-gray-600')}>
-                    <FolderIcon className="h-4 w-4 shrink-0 text-gray-400" />
-                    <span className="flex-1 truncate text-left">{f.name}</span>
-                    <span className="shrink-0 text-xs text-gray-400">{countInFolder(f.id)}</span>
-                  </button>
-                  <div className="flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100">
-                    <button onClick={() => setFolderModal({ mode: 'rename', id: f.id, name: f.name })} className="p-1 text-gray-400 hover:text-brand-600" title="이름 변경">
-                      <PencilIcon className="h-3.5 w-3.5" />
-                    </button>
-                    <button onClick={() => handleDeleteFolder(f)} className="p-1 text-gray-400 hover:text-red-600" title="삭제">
-                      <TrashIcon className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </nav>
-            {dragId && folders.length > 0 && <p className="mt-2 px-3 text-xs text-brand-500">여기 폴더로 끌어다 놓으세요</p>}
-          </Card>
-        </aside>
-
-        {/* 우측 본문 */}
-        <div className="min-w-0 flex-1">
+      <div>
+        {/* 본문 (폴더 선택은 좌측 사이드바에서) */}
+        <div className="min-w-0">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-500">
+            <FolderIcon className="h-4 w-4 text-gray-400" />
+            {sectionLabel}
+          </h2>
           {/* 필터 */}
           <Card className="mb-4">
             <div className="flex flex-wrap items-center gap-3">
@@ -524,7 +412,7 @@ export function TongList() {
                       className={cn('relative', dragId === t.id && 'opacity-50')}
                       draggable
                       onDragStart={(e) => onRowDragStart(e, t.id)}
-                      onDragEnd={() => { setDragId(null); setDropFolderId(null) }}
+                      onDragEnd={() => setDragId(null)}
                     >
                       {selectMode ? (
                         <div onClick={() => toggleSelect(t.id)} className={cn('flex cursor-pointer items-start gap-3 px-4 py-3.5 transition-colors hover:bg-gray-50', checked && 'bg-brand-50/50')}>
@@ -617,31 +505,6 @@ export function TongList() {
           )}
         </div>
       </div>
-
-      {/* 폴더 생성/이름변경 모달 */}
-      <Modal
-        open={folderModal !== null}
-        onClose={() => setFolderModal(null)}
-        title={folderModal?.mode === 'rename' ? '폴더 이름 변경' : '새 폴더'}
-        footer={
-          <>
-            <button className="btn-ghost" onClick={() => setFolderModal(null)}>취소</button>
-            <button className="btn-primary" onClick={submitFolderModal} disabled={!folderModal?.name.trim()}>
-              {folderModal?.mode === 'rename' ? '변경' : '만들기'}
-            </button>
-          </>
-        }
-      >
-        <label className="label">폴더 이름</label>
-        <input
-          className="input"
-          autoFocus
-          value={folderModal?.name ?? ''}
-          onChange={(e) => setFolderModal((m) => (m ? { ...m, name: e.target.value } : m))}
-          onKeyDown={(e) => e.key === 'Enter' && submitFolderModal()}
-          placeholder="예: 1분기 회의"
-        />
-      </Modal>
 
       {/* 휴지통 항목 읽기전용 미리보기 */}
       <TrashPreviewModal tong={previewTong} open={previewTong !== null} onClose={() => setPreviewTong(null)} />

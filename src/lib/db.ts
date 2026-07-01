@@ -174,8 +174,20 @@ class InMemoryRepository implements Repository {
   }
 
   async deleteFolder(id: string): Promise<void> {
-    this.data.folders = this.data.folders.filter((f) => f.id !== id)
-    this.data.folderItems = this.data.folderItems.filter((x) => x.folder_id !== id)
+    // 하위 폴더까지 재귀적으로 제거 (자기 자신 포함)
+    const ids = new Set<string>([id])
+    let changed = true
+    while (changed) {
+      changed = false
+      for (const f of this.data.folders) {
+        if (f.parent_id && ids.has(f.parent_id) && !ids.has(f.id)) {
+          ids.add(f.id)
+          changed = true
+        }
+      }
+    }
+    this.data.folders = this.data.folders.filter((f) => !ids.has(f.id))
+    this.data.folderItems = this.data.folderItems.filter((x) => !ids.has(x.folder_id))
   }
 
   async addFolderItem(item: FolderItem): Promise<void> {
