@@ -27,6 +27,11 @@ export interface Employee {
   org_id: string
   /** 소속 조직명 (조회 편의용 비정규화 필드) */
   org_name: string
+  /**
+   * 이 사람이 리드하는 조직 id 목록 (겸직 시 복수).
+   * 그룹웨어 조직도 동기화가 채우는 값. 없으면 직책+소속으로 파생([[auth]] ledOrgIds).
+   */
+  led_org_ids?: string[]
   created_at: string
 }
 

@@ -52,7 +52,8 @@ export const seedEmployees: Employee[] = [
   { id: 'emp-1', name: '김도윤', email: 'doyun.kim@visang.com', employee_no: 'V2019001', position: 'Cell Leader', org_id: 'cell-ax', org_name: 'AX추진 Cell', created_at: now.toISOString() },
   { id: 'emp-2', name: '이서연', email: 'seoyeon.lee@visang.com', employee_no: 'V2020114', position: 'CP', org_id: 'cell-ax', org_name: 'AX추진 Cell', created_at: now.toISOString() },
   { id: 'emp-3', name: '박지호', email: 'jiho.park@visang.com', employee_no: 'V2021077', position: 'CP', org_id: 'cell-platform', org_name: '플랫폼기획 Cell', created_at: now.toISOString() },
-  { id: 'emp-4', name: '최하은', email: 'haeun.choi@visang.com', employee_no: 'V2018045', position: 'Core Leader', org_id: 'core-ax', org_name: 'AX추진 Core', created_at: now.toISOString() },
+  // 겸직 데모: AX추진 Core 리더이자 유아콘텐츠 Cell(다른 가지) 리더도 겸함 → 두 조직 분석을 모두 볼 수 있음
+  { id: 'emp-4', name: '최하은', email: 'haeun.choi@visang.com', employee_no: 'V2018045', position: 'Core Leader', org_id: 'core-ax', org_name: 'AX추진 Core', led_org_ids: ['core-ax', 'cell-kids'], created_at: now.toISOString() },
   { id: 'emp-5', name: '정민준', email: 'minjun.jung@visang.com', employee_no: 'V2022150', position: 'CP', org_id: 'cell-kids', org_name: '유아콘텐츠 Cell', created_at: now.toISOString() },
   { id: 'emp-6', name: '한소율', email: 'soyul.han@visang.com', employee_no: 'V2017030', position: 'CP', org_id: 'core-textbook', org_name: '교재개발 Core', created_at: now.toISOString() },
 ]

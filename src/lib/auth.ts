@@ -50,3 +50,49 @@ export function canEditTong(tong: Tong, userId: string, shares: TongShare[]): bo
   if (tong.created_by === userId) return true
   return shares.some((s) => s.tong_id === tong.id && s.shared_with === userId && s.permission === 'edit')
 }
+
+// ── 조직 리더십 / 분석 가시성 ────────────────────────────────────────────────
+
+/** 특정 조직의 모든 하위 조직 id (자기 자신 포함) */
+export function orgDescendantIds(orgs: Organization[], rootId: string): Set<string> {
+  const result = new Set<string>([rootId])
+  let changed = true
+  while (changed) {
+    changed = false
+    for (const o of orgs) {
+      if (o.parent_id && result.has(o.parent_id) && !result.has(o.id)) {
+        result.add(o.id)
+        changed = true
+      }
+    }
+  }
+  return result
+}
+
+/**
+ * 사용자가 리드하는 조직 id 목록.
+ *  - `led_org_ids` 가 있으면(그룹웨어 동기화가 채운 값, 겸직 포함) 그것을 사용
+ *  - 없으면 직책 기반 파생: 리더면 자기 소속 조직 1개
+ */
+export function ledOrgIds(user: Employee | null): string[] {
+  if (!user) return []
+  if (user.led_org_ids && user.led_org_ids.length > 0) return user.led_org_ids
+  return positionRank(user.position) > 0 ? [user.org_id] : []
+}
+
+/** 분석(조직 운영 데이터)을 볼 수 있는지 = 리드하는 조직이 하나라도 있으면 */
+export function canViewAnalytics(user: Employee | null): boolean {
+  return ledOrgIds(user).length > 0
+}
+
+/**
+ * 분석 스코프 조직 id 집합.
+ *  - selectedOrgId 지정 시: 그 조직의 하위 트리
+ *  - null 이면: 리드하는 모든 조직의 하위 트리 합집합
+ */
+export function analyticsScopeOrgIds(orgs: Organization[], ledIds: string[], selectedOrgId: string | null): Set<string> {
+  const roots = selectedOrgId ? [selectedOrgId] : ledIds
+  const set = new Set<string>()
+  for (const r of roots) for (const id of orgDescendantIds(orgs, r)) set.add(id)
+  return set
+}

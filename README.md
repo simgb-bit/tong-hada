@@ -34,6 +34,7 @@ npm run dev      # http://localhost:5173
      - [`cron_purge_recordings.sql`](supabase/cron_purge_recordings.sql) — 음원 90일 자동 삭제(pg_cron)
      - [`migration_input_author.sql`](supabase/migration_input_author.sql) — 입력 기록 작성자·소프트삭제 (`tong_inputs.created_by` / `created_by_name` / `deleted_at`)
      - [`migration_summary_comments.sql`](supabase/migration_summary_comments.sql) — AI 요약 전체 내용(`tong_summaries.full_summary`) + 댓글(`tong_comments`)
+     - [`migration_led_orgs.sql`](supabase/migration_led_orgs.sql) — 조직 리더십(`employees.led_org_ids`) · 분석 권한/스코프 (선택: 겸직 데모용)
 3. `.env` 파일 생성 (`.env.example` 참고)
 
 ```env
@@ -51,7 +52,7 @@ VITE_SUPABASE_ANON_KEY=eyJhbGci...
 | 새 통 만들기 | 통명·유형·일시·참석자·안건·관련 자료·상태 입력 (주관 조직은 사용자 소속으로 자동 설정). 참석자는 **검색해서 추가**, 추가된 참석자에게 **자동으로 입력 권한(편집) 공유** |
 | 통 기록함 | 검색/필터 + **목록 / 캘린더** 뷰 토글 + **폴더**(스마트 폴더 + 개인 폴더) + **휴지통** + **페이지네이션**(10개/페이지) |
 | 통 상세 | 3개 탭 — 기본 정보 / 입력 / AI 요약 + **공유**(사원에게 보기/편집 권한 부여) + 삭제 시 **휴지통 이동**. 입력 기록은 **클릭 시 전체 내용·작성자 상세 보기**, **소프트 삭제(복구 가능)** — 삭제 시 AI 요약에서 제외. 보기 권한자는 **읽기 전용** |
-| 분석 | 유형별/조직별 통 개수, 반복 키워드, 최근 쟁점 등 |
+| 분석 | **리더(리드 조직 보유자) 전용**. 기간 선택(프리셋+사용자 지정 캘린더) · **관리 조직 스코프**(겸직 시 조직 드롭다운) · 활동 추세·보류·요약 정리율·상태·조직별·반복 키워드·참석 부하 |
 | 설정 | **Core 리더 이상 전용** — 통 유형 관리 |
 
 ### 통 유형 커스텀 (조직별)
