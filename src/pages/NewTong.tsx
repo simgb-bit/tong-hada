@@ -15,6 +15,13 @@ import type { Tong, TongStatus } from '@/types'
 
 const STATUSES: TongStatus[] = ['예정', '진행 완료', '보류']
 
+// datetime-local 기본값: 현재 날짜·시각 (로컬 시간, YYYY-MM-DDTHH:mm)
+function defaultScheduledAt() {
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 export function NewTong() {
   const data = useData()
   const { organizations, employees, tongTypes, upsertTong, addTongToFolder, addShare } = data
@@ -30,7 +37,7 @@ export function NewTong() {
 
   const [title, setTitle] = useState('')
   const [type, setType] = useState('')
-  const [scheduledAt, setScheduledAt] = useState('2026-06-18T10:00')
+  const [scheduledAt, setScheduledAt] = useState(defaultScheduledAt)
   const [participants, setParticipants] = useState<string[]>([])
   const [agenda, setAgenda] = useState('')
   const [references, setReferences] = useState('')

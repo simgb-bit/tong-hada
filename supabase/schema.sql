@@ -20,6 +20,9 @@ create table if not exists employees (
   position     text,
   org_id       text references organizations (id) on delete set null,
   org_name     text,
+  -- 이 사람이 리드하는 조직 id 목록 (겸직 시 복수). 그룹웨어 조직도 동기화가 채움.
+  -- 비어 있으면 앱이 직책+소속으로 파생(리더면 자기 조직). 분석 스코프·권한에 사용.
+  led_org_ids  jsonb not null default '[]'::jsonb,
   created_at   timestamptz not null default now()
 );
 

@@ -40,10 +40,14 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
-  const { canManageTongTypes } = useCurrentUser()
+  const { canManageTongTypes, canViewAnalytics } = useCurrentUser()
   const [collapsed, setCollapsed] = useState(false)
   const [recordsOpen, setRecordsOpen] = useState(true) // '통 기록함' 섹션(폴더 내비) 펼침 여부
-  const bottomItems = canManageTongTypes ? [analyticsItem, settingsItem] : [analyticsItem]
+  // 분석은 리더(리드 조직 보유자)만, 설정은 Core 리더 이상만 (사용 빈도 낮아 하단 고정)
+  const bottomItems = [
+    ...(canViewAnalytics ? [analyticsItem] : []),
+    ...(canManageTongTypes ? [settingsItem] : []),
+  ]
   const newItem = topItems[0]
   const tongsItem = topItems[1]
 
